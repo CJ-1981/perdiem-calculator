@@ -9,8 +9,8 @@
     <!-- React and ReactDOM CDNs -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <!-- Babel CDN for compiling JSX inside the browser instantly -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Babel CDN for in-browser JSX compilation (trade-off: keeps single-file deployment; pre-compilation recommended for production scale) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         body {
@@ -37,9 +37,25 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
-        // Custom High-Quality SVG Icons component to bypass external loading dependencies
+        // ─── Utility: timezone-safe local date formatter ───────────────────────
+        // Avoids the UTC shift that toISOString() introduces for non-UTC users.
+        function formatLocalDate(d) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function formatDateTimeLocal(d) {
+            const datePart = formatLocalDate(d);
+            const h = String(d.getHours()).padStart(2, '0');
+            const min = String(d.getMinutes()).padStart(2, '0');
+            return `${datePart}T${h}:${min}`;
+        }
+
+        // ─── SVG Icon component ───────────────────────────────────────────────
         const Icon = ({ name, className = "w-5 h-5" }) => {
             const icons = {
                 search: (
@@ -116,7 +132,7 @@
             return icons[name] || null;
         };
 
-        // DEFAULT OFFICIAL BMF BASELINE DATA
+        // ─── DEFAULT OFFICIAL BMF BASELINE DATA ───────────────────────────────
         const DEFAULT_BMF_RATES = {
             "Germany": { name: "Germany (Inland)", full: 28, small: 14, currency: "EUR" },
             "Austria": { name: "Austria", full: 50, small: 33, currency: "EUR" },
@@ -140,59 +156,284 @@
             "Japan (Tokyo)": { name: "Japan - Tokyo", full: 50, small: 33, currency: "EUR" },
         };
 
+        // ─── Dynamic default nodes (relative to today) ────────────────────────
+        function getDefaultNodes() {
+            const now = new Date();
+            const make = (dayOffset, hours, minutes) => {
+                const d = new Date(now);
+                d.setDate(d.getDate() + dayOffset);
+                d.setHours(hours, minutes, 0, 0);
+                return formatDateTimeLocal(d);
+            };
+            return [
+                { id: "node-1", location: "Germany", role: "start", dateTime: make(0, 8, 0), meals: {} },
+                { id: "node-2", location: "United Kingdom (London)", role: "destination", dateTime: make(0, 14, 0), meals: {} },
+                { id: "node-3", location: "France (Paris)", role: "destination", dateTime: make(2, 11, 0), meals: {} },
+                { id: "node-4", location: "Germany", role: "end", dateTime: make(4, 18, 0), meals: {} }
+            ];
+        }
+
+        // ─── localStorage helpers ─────────────────────────────────────────────
+        function loadFromStorage(key, fallback) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed !== null) return parsed;
+                }
+            } catch (e) { /* corrupted data — fall through */ }
+            return fallback;
+        }
+
+        // ─── PURE FUNCTION: calculateAllowances ───────────────────────────────
+        // Extracted from component for testability. No side effects.
+        function calculateAllowances(nodes, rates) {
+            if (nodes.length < 2) {
+                return { dayCalculation: [], totalClaim: 0, originalTotal: 0, totalReductions: 0 };
+            }
+
+            const sortedNodes = [...nodes].sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+            const startTime = new Date(sortedNodes[0].dateTime);
+            const endTime = new Date(sortedNodes[sortedNodes.length - 1].dateTime);
+
+            if (isNaN(startTime.getTime()) || isNaN(endTime.getTime()) || startTime >= endTime) {
+                return { dayCalculation: [], totalClaim: 0, originalTotal: 0, totalReductions: 0 };
+            }
+
+            // Build day list using local midnight boundaries (timezone-safe)
+            const dayList = [];
+            const startDate = new Date(startTime);
+            startDate.setHours(0, 0, 0, 0);
+            const endDate = new Date(endTime);
+            endDate.setHours(0, 0, 0, 0);
+
+            let current = new Date(startDate);
+            while (current <= endDate) {
+                dayList.push(new Date(current));
+                current.setDate(current.getDate() + 1);
+            }
+
+            let accumulatedOriginal = 0;
+            let accumulatedReductions = 0;
+            let accumulatedClaim = 0;
+
+            const calculatedDays = dayList.map((dayDate, index) => {
+                const dateString = formatLocalDate(dayDate); // timezone-safe
+                const isFirstDay = index === 0;
+                const isLastDay = index === dayList.length - 1;
+                const isSingleDayTrip = dayList.length === 1;
+
+                // Calculate active hours using wall-clock time (DST-safe)
+                let activeHoursToday = 24;
+                if (isSingleDayTrip) {
+                    const startMins = startTime.getHours() * 60 + startTime.getMinutes();
+                    const endMins = endTime.getHours() * 60 + endTime.getMinutes();
+                    activeHoursToday = (endMins - startMins) / 60;
+                } else if (isFirstDay) {
+                    const startMins = startTime.getHours() * 60 + startTime.getMinutes();
+                    activeHoursToday = (1440 - startMins) / 60;
+                } else if (isLastDay) {
+                    const endMins = endTime.getHours() * 60 + endTime.getMinutes();
+                    activeHoursToday = endMins / 60;
+                }
+
+                // Determine applicable location AND track which node set it
+                // (used for meal lookup — fixes the old broken fallback chain)
+                let applicableLocation = "Germany";
+                let activeNodeId = sortedNodes[0].id;
+                const dayEnd = new Date(dayDate);
+                dayEnd.setHours(23, 59, 59, 999);
+                const dayEndMs = dayEnd.getTime();
+
+                for (let i = 0; i < sortedNodes.length; i++) {
+                    const nodeTime = new Date(sortedNodes[i].dateTime);
+                    if (nodeTime.getTime() <= dayEndMs) {
+                        if (isLastDay && sortedNodes[i].role === 'end') {
+                            // Return day: use last foreign destination's rate (Mitternachtsprinzip)
+                            const prevForeignNode = sortedNodes.slice(0, i).reverse().find(n => n.role !== 'end');
+                            if (prevForeignNode) {
+                                applicableLocation = prevForeignNode.location;
+                                activeNodeId = prevForeignNode.id;
+                                break;
+                            }
+                        }
+                        applicableLocation = sortedNodes[i].location;
+                        activeNodeId = sortedNodes[i].id;
+                    }
+                }
+
+                const rateInfo = rates[applicableLocation] || { full: 28, small: 14, currency: "EUR" };
+                const fullRate = rateInfo.full;
+                const smallRate = rateInfo.small;
+
+                // Base allowance based on trip structure
+                let baseAllowance = 0;
+                let statusText = "";
+
+                if (isSingleDayTrip) {
+                    if (activeHoursToday > 8) {
+                        baseAllowance = smallRate;
+                        statusText = "One-day Trip (> 8h)";
+                    } else {
+                        baseAllowance = 0;
+                        statusText = "One-day Trip (< 8h)";
+                    }
+                } else if (isFirstDay) {
+                    baseAllowance = smallRate;
+                    statusText = "Departure Day";
+                } else if (isLastDay) {
+                    baseAllowance = smallRate;
+                    statusText = "Return Day";
+                } else {
+                    baseAllowance = fullRate;
+                    statusText = "Full 24h Day";
+                }
+
+                // Meal deductions — tied to the SAME node that determined the location
+                const activeNode = sortedNodes.find(n => n.id === activeNodeId);
+                const mealsObj = activeNode?.meals?.[dateString] || { breakfast: false, lunch: false, dinner: false };
+                const breakfastProvided = !!mealsObj.breakfast;
+                const lunchProvided = !!mealsObj.lunch;
+                const dinnerProvided = !!mealsObj.dinner;
+
+                // Deductions are always based on the full 24h rate per BMF guidelines
+                const breakfastDeduction = breakfastProvided ? fullRate * 0.20 : 0;
+                const lunchDeduction = lunchProvided ? fullRate * 0.40 : 0;
+                const dinnerDeduction = dinnerProvided ? fullRate * 0.40 : 0;
+                const totalDeductionsForDay = breakfastDeduction + lunchDeduction + dinnerDeduction;
+
+                const netAllowance = Math.max(0, baseAllowance - totalDeductionsForDay);
+
+                accumulatedOriginal += baseAllowance;
+                accumulatedReductions += totalDeductionsForDay;
+                accumulatedClaim += netAllowance;
+
+                return {
+                    date: dateString,
+                    dayOfWeek: dayDate.toLocaleDateString('en-US', { weekday: 'short' }),
+                    location: applicableLocation,
+                    fullRate,
+                    smallRate,
+                    statusText,
+                    baseAllowance,
+                    activeHours: activeHoursToday,
+                    breakfastProvided,
+                    lunchProvided,
+                    dinnerProvided,
+                    breakfastDeduction,
+                    lunchDeduction,
+                    dinnerDeduction,
+                    totalDeductionsForDay,
+                    netAllowance,
+                    nodeId: activeNodeId
+                };
+            });
+
+            return {
+                dayCalculation: calculatedDays,
+                totalClaim: accumulatedClaim,
+                originalTotal: accumulatedOriginal,
+                totalReductions: accumulatedReductions
+            };
+        }
+
+        // ─── Error Boundary ───────────────────────────────────────────────────
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen flex items-center justify-center bg-[#fafafa]">
+                            <div className="bg-white border border-rose-200 rounded-2xl p-8 max-w-md text-center shadow-sm">
+                                <h1 className="text-xl font-bold text-rose-700 mb-2">Something went wrong</h1>
+                                <p className="text-sm text-neutral-500 mb-4">{this.state.error?.message || "An unexpected error occurred."}</p>
+                                <button
+                                    onClick={() => { localStorage.clear(); this.setState({ hasError: false, error: null }); }}
+                                    className="px-4 py-2 bg-neutral-900 text-white text-sm rounded-lg hover:bg-neutral-800 transition-colors"
+                                >
+                                    Reset & Reload
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        // ─── Main App ─────────────────────────────────────────────────────────
         function App() {
-            const [rates, setRates] = useState(DEFAULT_BMF_RATES);
-            const [activeTab, setActiveTab] = useState("timeline"); // "timeline", "rates"
+            const [rates, setRates] = useState(() => loadFromStorage('perdiem-rates', DEFAULT_BMF_RATES));
+            const [activeTab, setActiveTab] = useState("timeline");
             const [searchQuery, setSearchQuery] = useState("");
-            
-            // Custom non-blocking interactive notification toast state
+
+            // Toast with ref-based timer cleanup
             const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+            const toastTimerRef = useRef(null);
 
             const triggerToast = (message, type = "success") => {
+                if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
                 setToast({ show: true, message, type });
-                setTimeout(() => {
+                toastTimerRef.current = setTimeout(() => {
                     setToast(prev => ({ ...prev, show: false }));
+                    toastTimerRef.current = null;
                 }, 3500);
             };
 
-            // Custom manual override state
+            // Custom rate form state
             const [customCountryName, setCustomCountryName] = useState("");
             const [customFullRate, setCustomFullRate] = useState(28);
             const [customSmallRate, setCustomSmallRate] = useState(14);
 
-            // Default Travel Nodes
-            const [nodes, setNodes] = useState([
-                { id: "node-1", location: "Germany", role: "start", dateTime: "2026-06-15T08:00", meals: {} },
-                { id: "node-2", location: "United Kingdom (London)", role: "destination", dateTime: "2026-06-15T14:00", meals: {} },
-                { id: "node-3", location: "France (Paris)", role: "destination", dateTime: "2026-06-17T11:00", meals: {} },
-                { id: "node-4", location: "Germany", role: "end", dateTime: "2026-06-19T18:00", meals: {} }
-            ]);
+            // Travel nodes — restored from localStorage or defaults
+            const [nodes, setNodes] = useState(() => loadFromStorage('perdiem-nodes', getDefaultNodes()));
 
-            const [dayCalculation, setDayCalculation] = useState([]);
-            const [totalClaim, setTotalClaim] = useState(0);
-            const [originalTotal, setOriginalTotal] = useState(0);
-            const [totalReductions, setTotalReductions] = useState(0);
-
+            // Drag-and-drop counter ref (prevents flicker on child elements)
             const [dragActive, setDragActive] = useState(false);
+            const dragCounter = useRef(0);
             const fileInputRef = useRef(null);
 
+            // Persist nodes to localStorage
             useEffect(() => {
-                calculateAllowances();
-            }, [nodes, rates]);
+                try { localStorage.setItem('perdiem-nodes', JSON.stringify(nodes)); } catch (e) {}
+            }, [nodes]);
 
+            // Persist rates only when they differ from defaults
+            useEffect(() => {
+                try {
+                    if (JSON.stringify(rates) !== JSON.stringify(DEFAULT_BMF_RATES)) {
+                        localStorage.setItem('perdiem-rates', JSON.stringify(rates));
+                    } else {
+                        localStorage.removeItem('perdiem-rates');
+                    }
+                } catch (e) {}
+            }, [rates]);
+
+            // Pure computation via useMemo (replaces useEffect + 4 state setters)
+            const { dayCalculation, totalClaim, originalTotal, totalReductions } = useMemo(
+                () => calculateAllowances(nodes, rates),
+                [nodes, rates]
+            );
+
+            // ─── Node operations ──────────────────────────────────────────────
             const addNode = (index) => {
                 const prevNode = nodes[index];
-                const prevDate = prevNode ? new Date(prevNode.dateTime) : new Date();
+                let prevDate = prevNode ? new Date(prevNode.dateTime) : new Date();
+                if (isNaN(prevDate.getTime())) prevDate = new Date();
                 const nextDate = new Date(prevDate);
                 nextDate.setDate(nextDate.getDate() + 1);
-                
-                const formattedDate = nextDate.toISOString().slice(0, 16);
 
                 const newNode = {
                     id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
                     location: "Austria",
                     role: "destination",
-                    dateTime: formattedDate,
+                    dateTime: formatDateTimeLocal(nextDate),
                     meals: {}
                 };
 
@@ -222,9 +463,7 @@
 
             const updateNodeProperty = (id, prop, value) => {
                 let updated = nodes.map(node => {
-                    if (node.id === id) {
-                        return { ...node, [prop]: value };
-                    }
+                    if (node.id === id) return { ...node, [prop]: value };
                     return node;
                 });
 
@@ -245,15 +484,11 @@
                     if (node.id === nodeId) {
                         const currentMeals = node.meals || {};
                         const dayMeals = currentMeals[dateString] || { breakfast: false, lunch: false, dinner: false };
-                        const updatedDayMeals = {
-                            ...dayMeals,
-                            [mealType]: !dayMeals[mealType]
-                        };
                         return {
                             ...node,
                             meals: {
                                 ...currentMeals,
-                                [dateString]: updatedDayMeals
+                                [dateString]: { ...dayMeals, [mealType]: !dayMeals[mealType] }
                             }
                         };
                     }
@@ -261,165 +496,23 @@
                 }));
             };
 
-            const calculateAllowances = () => {
-                if (nodes.length < 2) return;
-
-                const sortedNodes = [...nodes].sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
-                const startTime = new Date(sortedNodes[0].dateTime);
-                const endTime = new Date(sortedNodes[sortedNodes.length - 1].dateTime);
-                
-                if (isNaN(startTime.getTime()) || isNaN(endTime.getTime()) || startTime >= endTime) {
-                    setDayCalculation([]);
-                    setTotalClaim(0);
-                    setOriginalTotal(0);
-                    setTotalReductions(0);
-                    return;
-                }
-
-                const dayList = [];
-                const currentDay = new Date(startTime);
-                currentDay.setHours(0,0,0,0);
-
-                const finalDayEnd = new Date(endTime);
-                finalDayEnd.setHours(0,0,0,0);
-
-                while (currentDay <= finalDayEnd) {
-                    dayList.push(new Date(currentDay));
-                    currentDay.setDate(currentDay.getDate() + 1);
-                }
-
-                let accumulatedOriginal = 0;
-                let accumulatedReductions = 0;
-                let accumulatedClaim = 0;
-
-                const calculatedDays = dayList.map((dayDate, index) => {
-                    const dateString = dayDate.toISOString().split('T')[0];
-                    const isFirstDay = index === 0;
-                    const isLastDay = index === dayList.length - 1;
-                    const isSingleDayTrip = dayList.length === 1;
-
-                    let activeHoursToday = 24;
-                    if (isFirstDay && isLastDay) {
-                        activeHoursToday = (endTime - startTime) / (1000 * 60 * 60);
-                    } else if (isFirstDay) {
-                        const midnight = new Date(dayDate);
-                        midnight.setHours(24,0,0,0);
-                        activeHoursToday = (midnight - startTime) / (1000 * 60 * 60);
-                    } else if (isLastDay) {
-                        const startOfToday = new Date(dayDate);
-                        activeHoursToday = (endTime - startOfToday) / (1000 * 60 * 60);
-                    }
-
-                    let applicableLocation = "Germany";
-                    for (let i = 0; i < sortedNodes.length; i++) {
-                        const nodeTime = new Date(sortedNodes[i].dateTime);
-                        if (nodeTime <= new Date(dayDate.getTime() + 24 * 60 * 60 * 1000 - 1)) {
-                            if (isLastDay && sortedNodes[i].role === 'end') {
-                                const prevForeignNode = sortedNodes.slice(0, i).reverse().find(n => n.role === 'destination');
-                                if (prevForeignNode) {
-                                    applicableLocation = prevForeignNode.location;
-                                    break;
-                                }
-                            }
-                            applicableLocation = sortedNodes[i].location;
-                        }
-                    }
-
-                    const rateInfo = rates[applicableLocation] || { full: 28, small: 14 };
-                    const fullRate = rateInfo.full;
-                    const smallRate = rateInfo.small;
-
-                    let baseAllowance = 0;
-                    let statusText = "";
-
-                    if (isSingleDayTrip) {
-                        if (activeHoursToday > 8) {
-                            baseAllowance = smallRate;
-                            statusText = `One-day Trip (> 8h)`;
-                        } else {
-                            baseAllowance = 0;
-                            statusText = `One-day Trip (< 8h)`;
-                        }
-                    } else if (isFirstDay) {
-                        baseAllowance = smallRate;
-                        statusText = `Departure Day`;
-                    } else if (isLastDay) {
-                        baseAllowance = smallRate;
-                        statusText = `Return Day`;
-                    } else {
-                        baseAllowance = fullRate;
-                        statusText = `Full 24h Day`;
-                    }
-
-                    let breakfastProvided = false;
-                    let lunchProvided = false;
-                    let dinnerProvided = false;
-                    let selectedNodeId = null;
-
-                    const correspondingNode = sortedNodes.find(n => {
-                        const nodeDateStr = n.dateTime.split('T')[0];
-                        return nodeDateStr === dateString && n.role !== 'end';
-                    }) || sortedNodes.find(n => n.role === 'destination') || sortedNodes[0];
-
-                    if (correspondingNode) {
-                        selectedNodeId = correspondingNode.id;
-                        const mealsObj = correspondingNode.meals?.[dateString] || { breakfast: false, lunch: false, dinner: false };
-                        breakfastProvided = mealsObj.breakfast;
-                        lunchProvided = mealsObj.lunch;
-                        dinnerProvided = mealsObj.dinner;
-                    }
-
-                    const breakfastDeduction = breakfastProvided ? fullRate * 0.20 : 0;
-                    const lunchDeduction = lunchProvided ? fullRate * 0.40 : 0;
-                    const dinnerDeduction = dinnerProvided ? fullRate * 0.40 : 0;
-                    const totalDeductionsForDay = breakfastDeduction + lunchDeduction + dinnerDeduction;
-
-                    const netAllowance = Math.max(0, baseAllowance - totalDeductionsForDay);
-
-                    accumulatedOriginal += baseAllowance;
-                    accumulatedReductions += totalDeductionsForDay;
-                    accumulatedClaim += netAllowance;
-
-                    return {
-                        date: dateString,
-                        dayOfWeek: dayDate.toLocaleDateString('en-US', { weekday: 'short' }),
-                        location: applicableLocation,
-                        fullRate,
-                        smallRate,
-                        statusText,
-                        baseAllowance,
-                        activeHours: activeHoursToday,
-                        breakfastProvided,
-                        lunchProvided,
-                        dinnerProvided,
-                        breakfastDeduction,
-                        lunchDeduction,
-                        dinnerDeduction,
-                        totalDeductionsForDay,
-                        netAllowance,
-                        nodeId: selectedNodeId
-                    };
-                });
-
-                setDayCalculation(calculatedDays);
-                setOriginalTotal(accumulatedOriginal);
-                setTotalReductions(accumulatedReductions);
-                setTotalClaim(accumulatedClaim);
-            };
-
+            // ─── File import (CSV / JSON) ─────────────────────────────────────
             const handleDrag = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (e.type === "dragenter" || e.type === "dragover") {
+                if (e.type === "dragenter") {
+                    dragCounter.current++;
                     setDragActive(true);
                 } else if (e.type === "dragleave") {
-                    setDragActive(false);
+                    dragCounter.current--;
+                    if (dragCounter.current === 0) setDragActive(false);
                 }
             };
 
             const handleDrop = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                dragCounter.current = 0;
                 setDragActive(false);
                 if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                     handleFile(e.dataTransfer.files[0]);
@@ -442,12 +535,16 @@
                             const newRates = { ...rates };
                             Object.keys(parsed).forEach(k => {
                                 if (parsed[k].full !== undefined && parsed[k].small !== undefined) {
-                                    newRates[k] = {
-                                        name: parsed[k].name || k,
-                                        full: parseFloat(parsed[k].full),
-                                        small: parseFloat(parsed[k].small),
-                                        currency: parsed[k].currency || "EUR"
-                                    };
+                                    const fullVal = parseFloat(parsed[k].full);
+                                    const smallVal = parseFloat(parsed[k].small);
+                                    if (!isNaN(fullVal) && !isNaN(smallVal)) {
+                                        newRates[k] = {
+                                            name: parsed[k].name || k,
+                                            full: fullVal,
+                                            small: smallVal,
+                                            currency: parsed[k].currency || "EUR"
+                                        };
+                                    }
                                 }
                             });
                             setRates(newRates);
@@ -498,30 +595,41 @@
                 triggerToast(`Registered custom rate override for ${customCountryName}`, "success");
             };
 
+            // Blob-based CSV download (more robust than data: URI)
             const downloadSampleCSV = () => {
-                const csvContent = "data:text/csv;charset=utf-8,Location,FullRate,SmallRate,Currency\n" + 
-                    "Switzerland (Zurich),70,47,EUR\n" + 
+                const csvContent = "Location,FullRate,SmallRate,Currency\n" +
+                    "Switzerland (Zurich),70,47,EUR\n" +
                     "Norway (Oslo),80,53,EUR\n" +
                     "Singapore,65,43,EUR";
-                const encodedUri = encodeURI(csvContent);
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
+                link.setAttribute("href", url);
                 link.setAttribute("download", "bmf_rates_template.csv");
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+                URL.revokeObjectURL(url);
             };
 
-            const triggerPrint = () => {
-                window.print();
+            const triggerPrint = () => window.print();
+
+            const resetTrip = () => {
+                setNodes(getDefaultNodes());
+                triggerToast("Reset travel nodes back to default schema.", "success");
             };
 
             return (
                 <div className="min-h-screen bg-[#fafafa] flex flex-col relative pb-16">
-                    
-                    {/* Custom State Notification Toast */}
+
+                    {/* Skip-to-content link for keyboard/screen reader users */}
+                    <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-neutral-900 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium">
+                        Skip to content
+                    </a>
+
+                    {/* Toast notification */}
                     {toast.show && (
-                        <div className="fixed top-20 right-6 z-50 animate-bounce">
+                        <div className="fixed top-20 right-6 z-50 animate-bounce" role="status" aria-live="polite">
                             <div className={`flex items-center space-x-3 px-5 py-3 rounded-xl shadow-xl text-white font-medium text-sm transition-all duration-300 ${
                                 toast.type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'
                             }`}>
@@ -545,30 +653,31 @@
                             </div>
 
                             <div className="flex items-center space-x-2">
-                                <button 
+                                <button
                                     onClick={() => setActiveTab("timeline")}
                                     className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                                        activeTab === "timeline" 
-                                            ? "bg-neutral-900 text-white" 
+                                        activeTab === "timeline"
+                                            ? "bg-neutral-900 text-white"
                                             : "text-neutral-600 hover:bg-neutral-100"
                                     }`}
                                 >
                                     Trip Planner
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => setActiveTab("rates")}
                                     className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                                        activeTab === "rates" 
-                                            ? "bg-neutral-900 text-white" 
+                                        activeTab === "rates"
+                                            ? "bg-neutral-900 text-white"
                                             : "text-neutral-600 hover:bg-neutral-100"
                                     }`}
                                 >
                                     BMF Database
                                 </button>
-                                <button 
+                                <button
                                     onClick={triggerPrint}
                                     className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition-colors"
                                     title="Print Statement"
+                                    aria-label="Print expense statement"
                                 >
                                     <Icon name="fileText" className="w-5 h-5" />
                                 </button>
@@ -576,8 +685,8 @@
                         </div>
                     </header>
 
-                    <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        
+                    <main id="main-content" className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
                         {activeTab === "timeline" && (
                             <>
                                 {/* Left Side: Timeline Construction */}
@@ -598,27 +707,27 @@
                                                 <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
                                                 <h2 className="font-semibold text-neutral-900">Trip Node Topology</h2>
                                             </div>
-                                            <span className="text-xs text-neutral-400 font-mono">
+                                            <span className="text-xs text-neutral-500 font-mono">
                                                 {nodes.length} Stops Active
                                             </span>
                                         </div>
 
                                         <div className="relative pl-8 md:pl-12 space-y-8 before:absolute before:left-[19px] md:before:left-[27px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-neutral-900 before:via-neutral-200 before:to-emerald-500">
-                                            
+
                                             {nodes.map((node, idx) => {
                                                 const isStart = node.role === "start";
                                                 const isEnd = node.role === "end";
                                                 const formattedDate = node.dateTime ? new Date(node.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Unset";
-                                                
+
                                                 return (
                                                     <div key={node.id} className="relative group transition-all duration-300">
-                                                        
+
                                                         {/* Visual Node Pin */}
                                                         <div className={`absolute -left-[27px] md:-left-[35px] top-1.5 h-6 w-6 md:h-8 md:w-8 rounded-full border-4 flex items-center justify-center transition-transform group-hover:scale-110 z-10 ${
-                                                            isStart 
-                                                                ? "bg-neutral-950 border-neutral-100 text-white" 
-                                                                : isEnd 
-                                                                    ? "bg-emerald-500 border-neutral-100 text-white" 
+                                                            isStart
+                                                                ? "bg-neutral-950 border-neutral-100 text-white"
+                                                                : isEnd
+                                                                    ? "bg-emerald-500 border-neutral-100 text-white"
                                                                     : "bg-white border-neutral-900 text-neutral-900"
                                                         }`}>
                                                             <span className="text-[10px] font-bold">
@@ -629,13 +738,13 @@
                                                         {/* Panel Inputs */}
                                                         <div className="bg-neutral-50 hover:bg-neutral-100/70 border border-neutral-200 rounded-xl p-4 transition-all duration-200">
                                                             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                                                                
+
                                                                 <div className="md:col-span-2">
                                                                     <span className={`inline-block text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
-                                                                        isStart 
-                                                                            ? "bg-neutral-200 text-neutral-800" 
-                                                                            : isEnd 
-                                                                                ? "bg-emerald-100 text-emerald-800" 
+                                                                        isStart
+                                                                            ? "bg-neutral-200 text-neutral-800"
+                                                                            : isEnd
+                                                                                ? "bg-emerald-100 text-emerald-800"
                                                                                 : "bg-blue-100 text-blue-800"
                                                                     }`}>
                                                                         {node.role}
@@ -643,7 +752,7 @@
                                                                 </div>
 
                                                                 <div className="md:col-span-5 relative">
-                                                                    <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
+                                                                    <label htmlFor={`loc-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
                                                                         Location Destination
                                                                     </label>
                                                                     <div className="relative">
@@ -651,13 +760,14 @@
                                                                             <Icon name="mapPin" className="w-4 h-4" />
                                                                         </div>
                                                                         <select
+                                                                            id={`loc-${node.id}`}
                                                                             value={node.location}
                                                                             onChange={(e) => updateNodeProperty(node.id, 'location', e.target.value)}
                                                                             className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900 text-neutral-800 font-medium"
                                                                         >
                                                                             {Object.keys(rates).map(loc => (
                                                                                 <option key={loc} value={loc}>
-                                                                                    {rates[loc].name} (€{rates[loc].full}/€{rates[loc].small})
+                                                                                    {rates[loc].name} ({rates[loc].currency}{rates[loc].full}/{rates[loc].small})
                                                                                 </option>
                                                                             ))}
                                                                         </select>
@@ -665,14 +775,15 @@
                                                                 </div>
 
                                                                 <div className="md:col-span-4">
-                                                                    <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
-                                                                        Date & Time
+                                                                    <label htmlFor={`dt-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
+                                                                        Date &amp; Time
                                                                     </label>
                                                                     <div className="relative">
                                                                         <div className="absolute left-2.5 top-2.5 text-neutral-400">
                                                                             <Icon name="clock" className="w-4 h-4" />
                                                                         </div>
                                                                         <input
+                                                                            id={`dt-${node.id}`}
                                                                             type="datetime-local"
                                                                             value={node.dateTime}
                                                                             onChange={(e) => updateNodeProperty(node.id, 'dateTime', e.target.value)}
@@ -687,6 +798,7 @@
                                                                             onClick={() => removeNode(node.id)}
                                                                             className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                                                                             title="Delete stop"
+                                                                            aria-label="Delete this stop"
                                                                         >
                                                                             <Icon name="trash" className="w-4 h-4" />
                                                                         </button>
@@ -697,9 +809,9 @@
 
                                                             <div className="mt-2.5 pt-2 border-t border-dashed border-neutral-200 flex flex-wrap items-center justify-between text-xs text-neutral-500">
                                                                 <span>
-                                                                    Active Rate: <strong>€{rates[node.location]?.full || 28}</strong> / <strong>€{rates[node.location]?.small || 14}</strong>
+                                                                    Active Rate: <strong>{rates[node.location]?.currency || 'EUR'}{rates[node.location]?.full || 28}</strong> / <strong>{rates[node.location]?.currency || 'EUR'}{rates[node.location]?.small || 14}</strong>
                                                                 </span>
-                                                                <span className="font-mono text-neutral-400">
+                                                                <span className="font-mono text-neutral-500">
                                                                     {formattedDate}
                                                                 </span>
                                                             </div>
@@ -712,6 +824,7 @@
                                                                     onClick={() => addNode(idx)}
                                                                     className="h-6 w-6 rounded-full bg-white border border-neutral-300 hover:border-neutral-950 text-neutral-600 hover:text-neutral-950 flex items-center justify-center shadow-sm transition-colors"
                                                                     title="Insert intermediate stop"
+                                                                    aria-label="Insert intermediate stop"
                                                                 >
                                                                     <Icon name="plus" className="w-3.5 h-3.5" />
                                                                 </button>
@@ -726,20 +839,13 @@
 
                                         <div className="mt-8 pt-4 border-t border-neutral-100 flex justify-between items-center">
                                             <button
-                                                onClick={() => {
-                                                    setNodes([
-                                                        { id: "node-1", location: "Germany", role: "start", dateTime: "2026-06-15T08:00", meals: {} },
-                                                        { id: "node-2", location: "United Kingdom (London)", role: "destination", dateTime: "2026-06-15T14:00", meals: {} },
-                                                        { id: "node-3", location: "Germany", role: "end", dateTime: "2026-06-18T18:00", meals: {} }
-                                                    ]);
-                                                    triggerToast("Reset travel nodes back to default schema.", "success");
-                                                }}
+                                                onClick={resetTrip}
                                                 className="text-xs text-neutral-400 hover:text-neutral-900 transition-colors flex items-center space-x-1"
                                             >
                                                 <Icon name="refresh" className="w-3.5 h-3.5" />
                                                 <span>Reset Trip Itinerary</span>
                                             </button>
-                                            <span className="text-xs text-neutral-400">
+                                            <span className="text-xs text-neutral-500">
                                                 Maintains chronologically ordered timeline.
                                             </span>
                                         </div>
@@ -761,33 +867,32 @@
                                     </div>
                                 </div>
 
-                                {}
                                 {/* Right Side: Calculations Panel */}
                                 <div className="lg:col-span-5 flex flex-col space-y-6">
                                     <div className="bg-white rounded-2xl border-2 border-neutral-950 p-6 shadow-md relative overflow-hidden">
                                         <div className="absolute right-0 top-0 translate-x-2 -translate-y-2 text-neutral-50 select-none pointer-events-none font-bold text-7xl">
-                                            €
+                                            EUR
                                         </div>
 
-                                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
                                             Total Reimbursement Claim
                                         </p>
-                                        
+
                                         <div className="flex items-baseline space-x-1 mt-2">
                                             <span className="text-5xl font-black text-neutral-950 tracking-tight">
-                                                €{totalClaim.toFixed(2)}
+                                                EUR{totalClaim.toFixed(2)}
                                             </span>
                                             <span className="text-sm font-medium text-neutral-500">EUR</span>
                                         </div>
 
                                         <div className="mt-4 pt-4 border-t border-neutral-100 grid grid-cols-2 gap-4">
                                             <div>
-                                                <span className="block text-xs text-neutral-400">Base Allowance:</span>
-                                                <span className="text-sm font-semibold text-neutral-700">€{originalTotal.toFixed(2)}</span>
+                                                <span className="block text-xs text-neutral-500">Base Allowance:</span>
+                                                <span className="text-sm font-semibold text-neutral-700">EUR{originalTotal.toFixed(2)}</span>
                                             </div>
                                             <div>
-                                                <span className="block text-xs text-neutral-400">Meal Deductions:</span>
-                                                <span className="text-sm font-semibold text-rose-600">-€{totalReductions.toFixed(2)}</span>
+                                                <span className="block text-xs text-neutral-500">Meal Deductions:</span>
+                                                <span className="text-sm font-semibold text-rose-600">-EUR{totalReductions.toFixed(2)}</span>
                                             </div>
                                         </div>
 
@@ -803,7 +908,7 @@
                                     {/* Daily Schedules */}
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                                            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
                                                 Day-by-Day Allowances
                                             </h3>
                                             <span className="text-xs text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full font-medium">
@@ -812,7 +917,7 @@
                                         </div>
 
                                         {dayCalculation.length === 0 ? (
-                                            <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center text-neutral-400 text-sm">
+                                            <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center text-neutral-500 text-sm">
                                                 Enter valid dates and stop locations to trigger daily schedules automatically.
                                             </div>
                                         ) : (
@@ -821,7 +926,7 @@
                                                     <div key={day.date} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:border-neutral-300 transition-colors">
                                                         <div className="flex items-start justify-between mb-3">
                                                             <div>
-                                                                <span className="text-xs font-bold text-neutral-400 block font-mono">
+                                                                <span className="text-xs font-bold text-neutral-500 block font-mono">
                                                                     Day {dIdx + 1} • {day.dayOfWeek} {day.date}
                                                                 </span>
                                                                 <span className="text-sm font-bold text-neutral-900 inline-flex items-center mt-0.5">
@@ -830,32 +935,33 @@
                                                                 </span>
                                                             </div>
                                                             <div className="text-right">
-                                                                <span className="text-xs font-medium text-neutral-400 block">
+                                                                <span className="text-xs font-medium text-neutral-500 block">
                                                                     {day.statusText}
                                                                 </span>
                                                                 <span className="text-sm font-semibold text-neutral-500 line-through mr-1.5">
-                                                                    {day.baseAllowance !== day.netAllowance && `€${day.baseAllowance}`}
+                                                                    {day.baseAllowance !== day.netAllowance && `${rates[day.location]?.currency || 'EUR'}${day.baseAllowance}`}
                                                                 </span>
                                                                 <span className="text-base font-extrabold text-neutral-900">
-                                                                    €{day.netAllowance.toFixed(2)}
+                                                                    {rates[day.location]?.currency || 'EUR'}{day.netAllowance.toFixed(2)}
                                                                 </span>
                                                             </div>
                                                         </div>
 
                                                         {/* Meal Selectors */}
                                                         <div className="mt-3 pt-3 border-t border-neutral-100">
-                                                            <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide mb-2">
+                                                            <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide mb-2">
                                                                 Meals provided on this day:
                                                             </p>
                                                             <div className="grid grid-cols-3 gap-2">
-                                                                
+
                                                                 <button
                                                                     onClick={() => toggleMeal(day.nodeId, day.date, 'breakfast')}
                                                                     className={`flex items-center space-x-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
-                                                                        day.breakfastProvided 
-                                                                            ? "bg-rose-50 border-rose-200 text-rose-700" 
+                                                                        day.breakfastProvided
+                                                                            ? "bg-rose-50 border-rose-200 text-rose-700"
                                                                             : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
                                                                     }`}
+                                                                    aria-label={`Toggle breakfast for ${day.date}`}
                                                                 >
                                                                     <Icon name="coffee" className="w-3.5 h-3.5 flex-shrink-0" />
                                                                     <span className="truncate">Breakfast (-20%)</span>
@@ -864,10 +970,11 @@
                                                                 <button
                                                                     onClick={() => toggleMeal(day.nodeId, day.date, 'lunch')}
                                                                     className={`flex items-center space-x-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
-                                                                        day.lunchProvided 
-                                                                            ? "bg-rose-50 border-rose-200 text-rose-700" 
+                                                                        day.lunchProvided
+                                                                            ? "bg-rose-50 border-rose-200 text-rose-700"
                                                                             : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
                                                                     }`}
+                                                                    aria-label={`Toggle lunch for ${day.date}`}
                                                                 >
                                                                     <Icon name="utensils" className="w-3.5 h-3.5 flex-shrink-0" />
                                                                     <span className="truncate">Lunch (-40%)</span>
@@ -876,10 +983,11 @@
                                                                 <button
                                                                     onClick={() => toggleMeal(day.nodeId, day.date, 'dinner')}
                                                                     className={`flex items-center space-x-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
-                                                                        day.dinnerProvided 
-                                                                            ? "bg-rose-50 border-rose-200 text-rose-700" 
+                                                                        day.dinnerProvided
+                                                                            ? "bg-rose-50 border-rose-200 text-rose-700"
                                                                             : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
                                                                     }`}
+                                                                    aria-label={`Toggle dinner for ${day.date}`}
                                                                 >
                                                                     <Icon name="utensils" className="w-3.5 h-3.5 flex-shrink-0" />
                                                                     <span className="truncate">Dinner (-40%)</span>
@@ -889,7 +997,7 @@
 
                                                             {day.totalDeductionsForDay > 0 && (
                                                                 <div className="mt-2 text-[10px] text-rose-600 font-medium flex items-center justify-end">
-                                                                    <span>Meal reductions: -€{day.totalDeductionsForDay.toFixed(2)} (of 24h rate €{day.fullRate})</span>
+                                                                    <span>Meal reductions: -{rates[day.location]?.currency || 'EUR'}{day.totalDeductionsForDay.toFixed(2)} (of 24h rate {rates[day.location]?.currency || 'EUR'}{day.fullRate})</span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -903,7 +1011,6 @@
                             </>
                         )}
 
-                        {}
                         {activeTab === "rates" && (
                             <div className="lg:col-span-12 flex flex-col space-y-6">
                                 <div className="text-center max-w-2xl mx-auto py-6">
@@ -916,36 +1023,39 @@
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    
+
                                     {/* Upload Area */}
-                                    <div 
+                                    <div
                                         onDragEnter={handleDrag}
                                         onDragOver={handleDrag}
                                         onDragLeave={handleDrag}
                                         onDrop={handleDrop}
                                         className={`border-2 border-dashed rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all cursor-pointer ${
-                                            dragActive 
-                                                ? "border-neutral-950 bg-neutral-50" 
+                                            dragActive
+                                                ? "border-neutral-950 bg-neutral-50"
                                                 : "border-neutral-200 hover:border-neutral-400 bg-white"
                                         }`}
                                         onClick={() => fileInputRef.current.click()}
+                                        role="button"
+                                        aria-label="Upload BMF rates file"
                                     >
-                                        <input 
+                                        <input
                                             ref={fileInputRef}
-                                            type="file" 
-                                            className="hidden" 
+                                            type="file"
+                                            className="hidden"
                                             accept=".csv,.json"
                                             onChange={handleFileChange}
+                                            aria-label="Select CSV or JSON file"
                                         />
                                         <div className="h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 mb-3">
                                             <Icon name="upload" className="w-5 h-5" />
                                         </div>
                                         <h3 className="font-semibold text-neutral-900 text-sm">Upload Custom BMF File</h3>
-                                        <p className="text-xs text-neutral-400 mt-1 max-w-xs">
+                                        <p className="text-xs text-neutral-500 mt-1 max-w-xs">
                                             Drag and drop your updated official `.csv` or `.json` file of country rates here.
                                         </p>
                                         <div className="mt-4 flex items-center space-x-2">
-                                            <button 
+                                            <button
                                                 type="button"
                                                 onClick={(e) => { e.stopPropagation(); downloadSampleCSV(); }}
                                                 className="text-xs text-neutral-500 hover:text-neutral-900 underline flex items-center space-x-1"
@@ -959,14 +1069,15 @@
                                     {/* Manual Entry override form */}
                                     <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
                                         <h3 className="font-semibold text-neutral-900 text-sm mb-1">Add or Override Single Location</h3>
-                                        <p className="text-xs text-neutral-400 mb-4">Input custom values or test updates directly.</p>
+                                        <p className="text-xs text-neutral-500 mb-4">Input custom values or test updates directly.</p>
 
                                         <form onSubmit={addCustomRate} className="space-y-4">
                                             <div>
-                                                <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
+                                                <label htmlFor="custom-name" className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
                                                     Location / Region Name
                                                 </label>
                                                 <input
+                                                    id="custom-name"
                                                     type="text"
                                                     required
                                                     placeholder="e.g. Switzerland (Zurich)"
@@ -978,10 +1089,11 @@
 
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
+                                                    <label htmlFor="custom-full" className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
                                                         Full Rate (24h)
                                                     </label>
                                                     <input
+                                                        id="custom-full"
                                                         type="number"
                                                         min="0"
                                                         required
@@ -991,10 +1103,11 @@
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
+                                                    <label htmlFor="custom-small" className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
                                                         Small Rate (Arrival/Dep)
                                                     </label>
                                                     <input
+                                                        id="custom-small"
                                                         type="number"
                                                         min="0"
                                                         required
@@ -1025,7 +1138,9 @@
                                         </h3>
                                         <div className="relative">
                                             <div className="absolute left-2.5 top-2.5 text-neutral-400"><Icon name="search" className="w-4 h-4" /></div>
+                                            <label htmlFor="rates-search" className="sr-only">Search locations</label>
                                             <input
+                                                id="rates-search"
                                                 type="text"
                                                 placeholder="Search locations..."
                                                 value={searchQuery}
@@ -1037,7 +1152,7 @@
 
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left text-sm text-neutral-700">
-                                            <thead className="bg-neutral-50 text-[10px] text-neutral-400 uppercase font-bold tracking-wider border-b border-neutral-100">
+                                            <thead className="bg-neutral-50 text-[10px] text-neutral-500 uppercase font-bold tracking-wider border-b border-neutral-100">
                                                 <tr>
                                                     <th className="py-3 px-6">Location</th>
                                                     <th className="py-3 px-6">Full Day (&ge;24 Hours)</th>
@@ -1053,8 +1168,8 @@
                                                         return (
                                                             <tr key={key} className="hover:bg-neutral-50/50 transition-colors">
                                                                 <td className="py-3.5 px-6 font-semibold text-neutral-900">{item.name}</td>
-                                                                <td className="py-3.5 px-6">€{item.full.toFixed(2)}</td>
-                                                                <td className="py-3.5 px-6">€{item.small.toFixed(2)}</td>
+                                                                <td className="py-3.5 px-6">{item.currency}{item.full.toFixed(2)}</td>
+                                                                <td className="py-3.5 px-6">{item.currency}{item.small.toFixed(2)}</td>
                                                                 <td className="py-3.5 px-6 text-right">
                                                                     <button
                                                                         onClick={() => {
@@ -1064,6 +1179,7 @@
                                                                             triggerToast(`Deleted ${item.name} from catalog overrides`, "success");
                                                                         }}
                                                                         className="text-rose-600 hover:text-rose-800 text-xs transition-colors"
+                                                                        aria-label={`Delete ${item.name}`}
                                                                     >
                                                                         Delete
                                                                     </button>
@@ -1081,7 +1197,6 @@
 
                     </main>
 
-                    {}
                     {/* Invoice-friendly printed template layout */}
                     <div id="print-section" className="hidden print:block p-8 bg-white text-black font-sans w-full leading-normal">
                         <div className="flex justify-between items-start border-b-2 border-neutral-950 pb-6 mb-8">
@@ -1129,15 +1244,15 @@
                                             <td className="p-2 font-mono">{day.date}</td>
                                             <td className="p-2">{rates[day.location]?.name || day.location}</td>
                                             <td className="p-2">{day.statusText}</td>
-                                            <td className="p-2">€{day.fullRate}</td>
-                                            <td className="p-2">€{day.baseAllowance}</td>
+                                            <td className="p-2">{rates[day.location]?.currency || 'EUR'}{day.fullRate}</td>
+                                            <td className="p-2">{rates[day.location]?.currency || 'EUR'}{day.baseAllowance}</td>
                                             <td className="p-2">
                                                 {day.breakfastProvided && "Breakfast(-20%) "}
                                                 {day.lunchProvided && "Lunch(-40%) "}
                                                 {day.dinnerProvided && "Dinner(-40%)"}
-                                                {day.totalDeductionsForDay > 0 ? ` (-€${day.totalDeductionsForDay.toFixed(2)})` : "None"}
+                                                {day.totalDeductionsForDay > 0 ? ` (-${rates[day.location]?.currency || 'EUR'}${day.totalDeductionsForDay.toFixed(2)})` : "None"}
                                             </td>
-                                            <td className="p-2 text-right font-bold">€{day.netAllowance.toFixed(2)}</td>
+                                            <td className="p-2 text-right font-bold">{rates[day.location]?.currency || 'EUR'}{day.netAllowance.toFixed(2)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1147,10 +1262,10 @@
                         {/* Totals */}
                         <div className="flex justify-end pt-4 border-t border-neutral-400">
                             <div className="text-right space-y-1">
-                                <div className="text-xs">Base Sum: €{originalTotal.toFixed(2)}</div>
-                                <div className="text-xs text-rose-600">Total Deductions: -€{totalReductions.toFixed(2)}</div>
+                                <div className="text-xs">Base Sum: EUR{originalTotal.toFixed(2)}</div>
+                                <div className="text-xs text-rose-600">Total Deductions: -EUR{totalReductions.toFixed(2)}</div>
                                 <div className="text-base font-black border-t border-neutral-950 pt-2">
-                                    Payable Allowance Sum: €{totalClaim.toFixed(2)} EUR
+                                    Payable Allowance Sum: EUR{totalClaim.toFixed(2)}
                                 </div>
                             </div>
                         </div>
@@ -1172,9 +1287,9 @@
             );
         }
 
-        // Mount App
+        // Mount App with Error Boundary
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
     </script>
 </body>
 </html>
