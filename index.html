@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMF Daily Allowance Calculator (PerDiem)</title>
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React and ReactDOM CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel CDN for compiling JSX inside the browser instantly -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #print-section, #print-section * {
+                visibility: visible;
+            }
+            #print-section {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-[#fafafa] text-neutral-800 antialiased min-h-screen">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Custom High-Quality SVG Icons component to bypass external loading dependencies
+        const Icon = ({ name, className = "w-5 h-5" }) => {
+            const icons = {
+                search: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" className={className}>
+                        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                ),
+                plus: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" className={className}>
+                        <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                ),
+                trash: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                ),
+                fileText: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line>
+                    </svg>
+                ),
+                upload: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                ),
+                mapPin: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                ),
+                clock: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                ),
+                coffee: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                        <line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line>
+                    </svg>
+                ),
+                utensils: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path>
+                        <path d="M7 2v20"></path><path d="M21 15V2v0a5 5 0 0 0-5 5v8c0 1.1.9 2 2 2h3z"></path>
+                    </svg>
+                ),
+                info: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                ),
+                refresh: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                    </svg>
+                ),
+                download: (
+                    <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className={className}>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                )
+            };
+            return icons[name] || null;
+        };
+
+        // DEFAULT OFFICIAL BMF BASELINE DATA
+        const DEFAULT_BMF_RATES = {
+            "Germany": { name: "Germany (Inland)", full: 28, small: 14, currency: "EUR" },
+            "Austria": { name: "Austria", full: 50, small: 33, currency: "EUR" },
+            "Belgium": { name: "Belgium", full: 59, small: 40, currency: "EUR" },
+            "Denmark": { name: "Denmark", full: 75, small: 50, currency: "EUR" },
+            "Finland": { name: "Finland", full: 54, small: 36, currency: "EUR" },
+            "France (Paris)": { name: "France - Paris", full: 58, small: 39, currency: "EUR" },
+            "France (Rest)": { name: "France - Other regions", full: 53, small: 36, currency: "EUR" },
+            "Italy (Rome)": { name: "Italy - Rome", full: 48, small: 32, currency: "EUR" },
+            "Italy (Rest)": { name: "Italy - Other regions", full: 42, small: 28, currency: "EUR" },
+            "Luxembourg": { name: "Luxembourg", full: 63, small: 42, currency: "EUR" },
+            "Netherlands": { name: "Netherlands", full: 58, small: 39, currency: "EUR" },
+            "Spain (Madrid)": { name: "Spain - Madrid", full: 42, small: 28, currency: "EUR" },
+            "Spain (Rest)": { name: "Spain - Other regions", full: 34, small: 23, currency: "EUR" },
+            "Switzerland (Geneva)": { name: "Switzerland - Geneva", full: 70, small: 47, currency: "EUR" },
+            "Switzerland (Rest)": { name: "Switzerland - Other regions", full: 70, small: 47, currency: "EUR" },
+            "United Kingdom (London)": { name: "United Kingdom - London", full: 66, small: 44, currency: "EUR" },
+            "United Kingdom (Rest)": { name: "United Kingdom - Other regions", full: 52, small: 35, currency: "EUR" },
+            "United States (New York)": { name: "United States - New York City", full: 66, small: 44, currency: "EUR" },
+            "United States (Rest)": { name: "United States - Other regions", full: 56, small: 38, currency: "EUR" },
+            "Japan (Tokyo)": { name: "Japan - Tokyo", full: 50, small: 33, currency: "EUR" },
+        };
+
+        function App() {
+            const [rates, setRates] = useState(DEFAULT_BMF_RATES);
+            const [activeTab, setActiveTab] = useState("timeline"); // "timeline", "rates"
+            const [searchQuery, setSearchQuery] = useState("");
+            
+            // Custom non-blocking interactive notification toast state
+            const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+            const triggerToast = (message, type = "success") => {
+                setToast({ show: true, message, type });
+                setTimeout(() => {
+                    setToast(prev => ({ ...prev, show: false }));
+                }, 3500);
+            };
+
+            // Custom manual override state
+            const [customCountryName, setCustomCountryName] = useState("");
+            const [customFullRate, setCustomFullRate] = useState(28);
+            const [customSmallRate, setCustomSmallRate] = useState(14);
+
+            // Default Travel Nodes
+            const [nodes, setNodes] = useState([
+                { id: "node-1", location: "Germany", role: "start", dateTime: "2026-06-15T08:00", meals: {} },
+                { id: "node-2", location: "United Kingdom (London)", role: "destination", dateTime: "2026-06-15T14:00", meals: {} },
+                { id: "node-3", location: "France (Paris)", role: "destination", dateTime: "2026-06-17T11:00", meals: {} },
+                { id: "node-4", location: "Germany", role: "end", dateTime: "2026-06-19T18:00", meals: {} }
+            ]);
+
+            const [dayCalculation, setDayCalculation] = useState([]);
+            const [totalClaim, setTotalClaim] = useState(0);
+            const [originalTotal, setOriginalTotal] = useState(0);
+            const [totalReductions, setTotalReductions] = useState(0);
+
+            const [dragActive, setDragActive] = useState(false);
+            const fileInputRef = useRef(null);
+
+            useEffect(() => {
+                calculateAllowances();
+            }, [nodes, rates]);
+
+            const addNode = (index) => {
+                const prevNode = nodes[index];
+                const prevDate = prevNode ? new Date(prevNode.dateTime) : new Date();
+                const nextDate = new Date(prevDate);
+                nextDate.setDate(nextDate.getDate() + 1);
+                
+                const formattedDate = nextDate.toISOString().slice(0, 16);
+
+                const newNode = {
+                    id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                    location: "Austria",
+                    role: "destination",
+                    dateTime: formattedDate,
+                    meals: {}
+                };
+
+                const updated = [...nodes];
+                updated.splice(index + 1, 0, newNode);
+                reassignRoles(updated);
+                triggerToast("Inserted intermediate destination stop.", "success");
+            };
+
+            const removeNode = (id) => {
+                if (nodes.length <= 2) return;
+                const updated = nodes.filter(n => n.id !== id);
+                reassignRoles(updated);
+                triggerToast("Removed stop location from your path.", "success");
+            };
+
+            const reassignRoles = (list) => {
+                const sorted = [...list].sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+                const finalized = sorted.map((node, i) => {
+                    let role = "destination";
+                    if (i === 0) role = "start";
+                    else if (i === sorted.length - 1) role = "end";
+                    return { ...node, role };
+                });
+                setNodes(finalized);
+            };
+
+            const updateNodeProperty = (id, prop, value) => {
+                let updated = nodes.map(node => {
+                    if (node.id === id) {
+                        return { ...node, [prop]: value };
+                    }
+                    return node;
+                });
+
+                if (prop === 'dateTime') {
+                    updated.sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+                    updated = updated.map((node, i) => {
+                        let role = "destination";
+                        if (i === 0) role = "start";
+                        else if (i === updated.length - 1) role = "end";
+                        return { ...node, role };
+                    });
+                }
+                setNodes(updated);
+            };
+
+            const toggleMeal = (nodeId, dateString, mealType) => {
+                setNodes(prev => prev.map(node => {
+                    if (node.id === nodeId) {
+                        const currentMeals = node.meals || {};
+                        const dayMeals = currentMeals[dateString] || { breakfast: false, lunch: false, dinner: false };
+                        const updatedDayMeals = {
+                            ...dayMeals,
+                            [mealType]: !dayMeals[mealType]
+                        };
+                        return {
+                            ...node,
+                            meals: {
+                                ...currentMeals,
+                                [dateString]: updatedDayMeals
+                            }
+                        };
+                    }
+                    return node;
+                }));
+            };
+
+            const calculateAllowances = () => {
+                if (nodes.length < 2) return;
+
+                const sortedNodes = [...nodes].sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+                const startTime = new Date(sortedNodes[0].dateTime);
+                const endTime = new Date(sortedNodes[sortedNodes.length - 1].dateTime);
+                
+                if (isNaN(startTime.getTime()) || isNaN(endTime.getTime()) || startTime >= endTime) {
+                    setDayCalculation([]);
+                    setTotalClaim(0);
+                    setOriginalTotal(0);
+                    setTotalReductions(0);
+                    return;
+                }
+
+                const dayList = [];
+                const currentDay = new Date(startTime);
+                currentDay.setHours(0,0,0,0);
+
+                const finalDayEnd = new Date(endTime);
+                finalDayEnd.setHours(0,0,0,0);
+
+                while (currentDay <= finalDayEnd) {
+                    dayList.push(new Date(currentDay));
+                    currentDay.setDate(currentDay.getDate() + 1);
+                }
+
+                let accumulatedOriginal = 0;
+                let accumulatedReductions = 0;
+                let accumulatedClaim = 0;
+
+                const calculatedDays = dayList.map((dayDate, index) => {
+                    const dateString = dayDate.toISOString().split('T')[0];
+                    const isFirstDay = index === 0;
+                    const isLastDay = index === dayList.length - 1;
+                    const isSingleDayTrip = dayList.length === 1;
+
+                    let activeHoursToday = 24;
+                    if (isFirstDay && isLastDay) {
+                        activeHoursToday = (endTime - startTime) / (1000 * 60 * 60);
+                    } else if (isFirstDay) {
+                        const midnight = new Date(dayDate);
+                        midnight.setHours(24,0,0,0);
+                        activeHoursToday = (midnight - startTime) / (1000 * 60 * 60);
+                    } else if (isLastDay) {
+                        const startOfToday = new Date(dayDate);
+                        activeHoursToday = (endTime - startOfToday) / (1000 * 60 * 60);
+                    }
+
+                    let applicableLocation = "Germany";
+                    for (let i = 0; i < sortedNodes.length; i++) {
+                        const nodeTime = new Date(sortedNodes[i].dateTime);
+                        if (nodeTime <= new Date(dayDate.getTime() + 24 * 60 * 60 * 1000 - 1)) {
+                            if (isLastDay && sortedNodes[i].role === 'end') {
+                                const prevForeignNode = sortedNodes.slice(0, i).reverse().find(n => n.role === 'destination');
+                                if (prevForeignNode) {
+                                    applicableLocation = prevForeignNode.location;
+                                    break;
+                                }
+                            }
+                            applicableLocation = sortedNodes[i].location;
+                        }
+                    }
+
+                    const rateInfo = rates[applicableLocation] || { full: 28, small: 14 };
+                    const fullRate = rateInfo.full;
+                    const smallRate = rateInfo.small;
+
+                    let baseAllowance = 0;
+                    let statusText = "";
+
+                    if (isSingleDayTrip) {
+                        if (activeHoursToday > 8) {
+                            baseAllowance = smallRate;
+                            statusText = `One-day Trip (> 8h)`;
+                        } else {
+                            baseAllowance = 0;
+                            statusText = `One-day Trip (< 8h)`;
+                        }
+                    } else if (isFirstDay) {
+                        baseAllowance = smallRate;
+                        statusText = `Departure Day`;
+                    } else if (isLastDay) {
+                        baseAllowance = smallRate;
+                        statusText = `Return Day`;
+                    } else {
+                        baseAllowance = fullRate;
+                        statusText = `Full 24h Day`;
+                    }
+
+                    let breakfastProvided = false;
+                    let lunchProvided = false;
+                    let dinnerProvided = false;
+                    let selectedNodeId = null;
+
+                    const correspondingNode = sortedNodes.find(n => {
+                        const nodeDateStr = n.dateTime.split('T')[0];
+                        return nodeDateStr === dateString && n.role !== 'end';
+                    }) || sortedNodes.find(n => n.role === 'destination') || sortedNodes[0];
+
+                    if (correspondingNode) {
+                        selectedNodeId = correspondingNode.id;
+                        const mealsObj = correspondingNode.meals?.[dateString] || { breakfast: false, lunch: false, dinner: false };
+                        breakfastProvided = mealsObj.breakfast;
+                        lunchProvided = mealsObj.lunch;
+                        dinnerProvided = mealsObj.dinner;
+                    }
+
+                    const breakfastDeduction = breakfastProvided ? fullRate * 0.20 : 0;
+                    const lunchDeduction = lunchProvided ? fullRate * 0.40 : 0;
+                    const dinnerDeduction = dinnerProvided ? fullRate * 0.40 : 0;
+                    const totalDeductionsForDay = breakfastDeduction + lunchDeduction + dinnerDeduction;
+
+                    const netAllowance = Math.max(0, baseAllowance - totalDeductionsForDay);
+
+                    accumulatedOriginal += baseAllowance;
+                    accumulatedReductions += totalDeductionsForDay;
+                    accumulatedClaim += netAllowance;
+
+                    return {
+                        date: dateString,
+                        dayOfWeek: dayDate.toLocaleDateString('en-US', { weekday: 'short' }),
+                        location: applicableLocation,
+                        fullRate,
+                        smallRate,
+                        statusText,
+                        baseAllowance,
+                        activeHours: activeHoursToday,
+                        breakfastProvided,
+                        lunchProvided,
+                        dinnerProvided,
+                        breakfastDeduction,
+                        lunchDeduction,
+                        dinnerDeduction,
+                        totalDeductionsForDay,
+                        netAllowance,
+                        nodeId: selectedNodeId
+                    };
+                });
+
+                setDayCalculation(calculatedDays);
+                setOriginalTotal(accumulatedOriginal);
+                setTotalReductions(accumulatedReductions);
+                setTotalClaim(accumulatedClaim);
+            };
+
+            const handleDrag = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.type === "dragenter" || e.type === "dragover") {
+                    setDragActive(true);
+                } else if (e.type === "dragleave") {
+                    setDragActive(false);
+                }
+            };
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragActive(false);
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            };
+
+            const handleFileChange = (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    handleFile(e.target.files[0]);
+                }
+            };
+
+            const handleFile = (file) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const text = event.target.result;
+                    try {
+                        if (file.name.endsWith('.json')) {
+                            const parsed = JSON.parse(text);
+                            const newRates = { ...rates };
+                            Object.keys(parsed).forEach(k => {
+                                if (parsed[k].full !== undefined && parsed[k].small !== undefined) {
+                                    newRates[k] = {
+                                        name: parsed[k].name || k,
+                                        full: parseFloat(parsed[k].full),
+                                        small: parseFloat(parsed[k].small),
+                                        currency: parsed[k].currency || "EUR"
+                                    };
+                                }
+                            });
+                            setRates(newRates);
+                            triggerToast("Successfully parsed and updated rates from JSON file!", "success");
+                        } else {
+                            const rows = text.split('\n');
+                            const newRates = { ...rates };
+                            rows.forEach((row, idx) => {
+                                if (idx === 0) return;
+                                const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                                if (cols.length >= 3) {
+                                    const locationKey = cols[0];
+                                    const fullVal = parseFloat(cols[1]);
+                                    const smallVal = parseFloat(cols[2]);
+                                    if (locationKey && !isNaN(fullVal) && !isNaN(smallVal)) {
+                                        newRates[locationKey] = {
+                                            name: locationKey,
+                                            full: fullVal,
+                                            small: smallVal,
+                                            currency: cols[3] || "EUR"
+                                        };
+                                    }
+                                }
+                            });
+                            setRates(newRates);
+                            triggerToast("Successfully imported updated rates from CSV file!", "success");
+                        }
+                    } catch (err) {
+                        triggerToast("Failed to parse file. Ensure format matches the template.", "error");
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            const addCustomRate = (e) => {
+                e.preventDefault();
+                if (!customCountryName) return;
+                setRates(prev => ({
+                    ...prev,
+                    [customCountryName]: {
+                        name: customCountryName,
+                        full: parseFloat(customFullRate),
+                        small: parseFloat(customSmallRate),
+                        currency: "EUR"
+                    }
+                }));
+                setCustomCountryName("");
+                triggerToast(`Registered custom rate override for ${customCountryName}`, "success");
+            };
+
+            const downloadSampleCSV = () => {
+                const csvContent = "data:text/csv;charset=utf-8,Location,FullRate,SmallRate,Currency\n" + 
+                    "Switzerland (Zurich),70,47,EUR\n" + 
+                    "Norway (Oslo),80,53,EUR\n" +
+                    "Singapore,65,43,EUR";
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "bmf_rates_template.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const triggerPrint = () => {
+                window.print();
+            };
+
+            return (
+                <div className="min-h-screen bg-[#fafafa] flex flex-col relative pb-16">
+                    
+                    {/* Custom State Notification Toast */}
+                    {toast.show && (
+                        <div className="fixed top-20 right-6 z-50 animate-bounce">
+                            <div className={`flex items-center space-x-3 px-5 py-3 rounded-xl shadow-xl text-white font-medium text-sm transition-all duration-300 ${
+                                toast.type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'
+                            }`}>
+                                <Icon name="info" className="w-5 h-5 flex-shrink-0" />
+                                <span>{toast.message}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Navigation Header */}
+                    <header className="border-b border-neutral-100 bg-white sticky top-0 z-40">
+                        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <div className="h-9 w-9 bg-neutral-900 rounded-lg flex items-center justify-center text-white font-semibold shadow-sm">
+                                    DE
+                                </div>
+                                <div>
+                                    <span className="font-bold tracking-tight text-neutral-900">PerDiem</span>
+                                    <span className="text-neutral-400 text-xs font-mono ml-2">v2026.1</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                                <button 
+                                    onClick={() => setActiveTab("timeline")}
+                                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                        activeTab === "timeline" 
+                                            ? "bg-neutral-900 text-white" 
+                                            : "text-neutral-600 hover:bg-neutral-100"
+                                    }`}
+                                >
+                                    Trip Planner
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab("rates")}
+                                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                        activeTab === "rates" 
+                                            ? "bg-neutral-900 text-white" 
+                                            : "text-neutral-600 hover:bg-neutral-100"
+                                    }`}
+                                >
+                                    BMF Database
+                                </button>
+                                <button 
+                                    onClick={triggerPrint}
+                                    className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition-colors"
+                                    title="Print Statement"
+                                >
+                                    <Icon name="fileText" className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        
+                        {activeTab === "timeline" && (
+                            <>
+                                {/* Left Side: Timeline Construction */}
+                                <div className="lg:col-span-7 flex flex-col space-y-6">
+                                    <div className="text-center md:text-left py-4">
+                                        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-neutral-950">
+                                            Auslandsreise Rechner
+                                        </h1>
+                                        <p className="text-neutral-500 mt-2 text-sm md:text-base max-w-xl">
+                                            Build your travel itinerary below. The calculator processes arrival, departures, and full stay rules automatically.
+                                        </p>
+                                    </div>
+
+                                    {/* Graphical Nodes */}
+                                    <div className="bg-white rounded-2xl border border-neutral-200/80 p-5 md:p-6 shadow-sm relative overflow-hidden">
+                                        <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-100">
+                                            <div className="flex items-center space-x-2">
+                                                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                                                <h2 className="font-semibold text-neutral-900">Trip Node Topology</h2>
+                                            </div>
+                                            <span className="text-xs text-neutral-400 font-mono">
+                                                {nodes.length} Stops Active
+                                            </span>
+                                        </div>
+
+                                        <div className="relative pl-8 md:pl-12 space-y-8 before:absolute before:left-[19px] md:before:left-[27px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-neutral-900 before:via-neutral-200 before:to-emerald-500">
+                                            
+                                            {nodes.map((node, idx) => {
+                                                const isStart = node.role === "start";
+                                                const isEnd = node.role === "end";
+                                                const formattedDate = node.dateTime ? new Date(node.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Unset";
+                                                
+                                                return (
+                                                    <div key={node.id} className="relative group transition-all duration-300">
+                                                        
+                                                        {/* Visual Node Pin */}
+                                                        <div className={`absolute -left-[27px] md:-left-[35px] top-1.5 h-6 w-6 md:h-8 md:w-8 rounded-full border-4 flex items-center justify-center transition-transform group-hover:scale-110 z-10 ${
+                                                            isStart 
+                                                                ? "bg-neutral-950 border-neutral-100 text-white" 
+                                                                : isEnd 
+                                                                    ? "bg-emerald-500 border-neutral-100 text-white" 
+                                                                    : "bg-white border-neutral-900 text-neutral-900"
+                                                        }`}>
+                                                            <span className="text-[10px] font-bold">
+                                                                {isStart ? "S" : isEnd ? "E" : idx}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Panel Inputs */}
+                                                        <div className="bg-neutral-50 hover:bg-neutral-100/70 border border-neutral-200 rounded-xl p-4 transition-all duration-200">
+                                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                                                                
+                                                                <div className="md:col-span-2">
+                                                                    <span className={`inline-block text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+                                                                        isStart 
+                                                                            ? "bg-neutral-200 text-neutral-800" 
+                                                                            : isEnd 
+                                                                                ? "bg-emerald-100 text-emerald-800" 
+                                                                                : "bg-blue-100 text-blue-800"
+                                                                    }`}>
+                                                                        {node.role}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="md:col-span-5 relative">
+                                                                    <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
+                                                                        Location Destination
+                                                                    </label>
+                                                                    <div className="relative">
+                                                                        <div className="absolute left-2.5 top-2.5 text-neutral-400">
+                                                                            <Icon name="mapPin" className="w-4 h-4" />
+                                                                        </div>
+                                                                        <select
+                                                                            value={node.location}
+                                                                            onChange={(e) => updateNodeProperty(node.id, 'location', e.target.value)}
+                                                                            className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900 text-neutral-800 font-medium"
+                                                                        >
+                                                                            {Object.keys(rates).map(loc => (
+                                                                                <option key={loc} value={loc}>
+                                                                                    {rates[loc].name} (€{rates[loc].full}/€{rates[loc].small})
+                                                                                </option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="md:col-span-4">
+                                                                    <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
+                                                                        Date & Time
+                                                                    </label>
+                                                                    <div className="relative">
+                                                                        <div className="absolute left-2.5 top-2.5 text-neutral-400">
+                                                                            <Icon name="clock" className="w-4 h-4" />
+                                                                        </div>
+                                                                        <input
+                                                                            type="datetime-local"
+                                                                            value={node.dateTime}
+                                                                            onChange={(e) => updateNodeProperty(node.id, 'dateTime', e.target.value)}
+                                                                            className="w-full pl-9 pr-2 py-1 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="md:col-span-1 flex justify-end md:justify-center pt-2 md:pt-0">
+                                                                    {!isStart && !isEnd && (
+                                                                        <button
+                                                                            onClick={() => removeNode(node.id)}
+                                                                            className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                                            title="Delete stop"
+                                                                        >
+                                                                            <Icon name="trash" className="w-4 h-4" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+
+                                                            </div>
+
+                                                            <div className="mt-2.5 pt-2 border-t border-dashed border-neutral-200 flex flex-wrap items-center justify-between text-xs text-neutral-500">
+                                                                <span>
+                                                                    Active Rate: <strong>€{rates[node.location]?.full || 28}</strong> / <strong>€{rates[node.location]?.small || 14}</strong>
+                                                                </span>
+                                                                <span className="font-mono text-neutral-400">
+                                                                    {formattedDate}
+                                                                </span>
+                                                            </div>
+
+                                                        </div>
+
+                                                        {idx < nodes.length - 1 && (
+                                                            <div className="absolute left-[-19px] md:left-[-27px] bottom-[-24px] z-20 group-hover:scale-110 transition-transform">
+                                                                <button
+                                                                    onClick={() => addNode(idx)}
+                                                                    className="h-6 w-6 rounded-full bg-white border border-neutral-300 hover:border-neutral-950 text-neutral-600 hover:text-neutral-950 flex items-center justify-center shadow-sm transition-colors"
+                                                                    title="Insert intermediate stop"
+                                                                >
+                                                                    <Icon name="plus" className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+
+                                                    </div>
+                                                );
+                                            })}
+
+                                        </div>
+
+                                        <div className="mt-8 pt-4 border-t border-neutral-100 flex justify-between items-center">
+                                            <button
+                                                onClick={() => {
+                                                    setNodes([
+                                                        { id: "node-1", location: "Germany", role: "start", dateTime: "2026-06-15T08:00", meals: {} },
+                                                        { id: "node-2", location: "United Kingdom (London)", role: "destination", dateTime: "2026-06-15T14:00", meals: {} },
+                                                        { id: "node-3", location: "Germany", role: "end", dateTime: "2026-06-18T18:00", meals: {} }
+                                                    ]);
+                                                    triggerToast("Reset travel nodes back to default schema.", "success");
+                                                }}
+                                                className="text-xs text-neutral-400 hover:text-neutral-900 transition-colors flex items-center space-x-1"
+                                            >
+                                                <Icon name="refresh" className="w-3.5 h-3.5" />
+                                                <span>Reset Trip Itinerary</span>
+                                            </button>
+                                            <span className="text-xs text-neutral-400">
+                                                Maintains chronologically ordered timeline.
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Guideline Callout */}
+                                    <div className="bg-neutral-900 text-white rounded-2xl p-5 shadow-sm">
+                                        <div className="flex items-start space-x-3">
+                                            <div className="text-emerald-400 mt-0.5">
+                                                <Icon name="info" className="w-5 h-5" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <h3 className="font-semibold text-sm">German Midnight Rule (Mitternachtsprinzip)</h3>
+                                                <p className="text-xs text-neutral-300 leading-relaxed">
+                                                    For border-crossing travels spanning several regions or countries, the German tax agency looks strictly at where you are located exactly at <strong>24:00 (midnight)</strong> to dictate that day's rate. On your return trip back into Germany, you always claim the rate of your <strong>last active destination</strong>.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {}
+                                {/* Right Side: Calculations Panel */}
+                                <div className="lg:col-span-5 flex flex-col space-y-6">
+                                    <div className="bg-white rounded-2xl border-2 border-neutral-950 p-6 shadow-md relative overflow-hidden">
+                                        <div className="absolute right-0 top-0 translate-x-2 -translate-y-2 text-neutral-50 select-none pointer-events-none font-bold text-7xl">
+                                            €
+                                        </div>
+
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                                            Total Reimbursement Claim
+                                        </p>
+                                        
+                                        <div className="flex items-baseline space-x-1 mt-2">
+                                            <span className="text-5xl font-black text-neutral-950 tracking-tight">
+                                                €{totalClaim.toFixed(2)}
+                                            </span>
+                                            <span className="text-sm font-medium text-neutral-500">EUR</span>
+                                        </div>
+
+                                        <div className="mt-4 pt-4 border-t border-neutral-100 grid grid-cols-2 gap-4">
+                                            <div>
+                                                <span className="block text-xs text-neutral-400">Base Allowance:</span>
+                                                <span className="text-sm font-semibold text-neutral-700">€{originalTotal.toFixed(2)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="block text-xs text-neutral-400">Meal Deductions:</span>
+                                                <span className="text-sm font-semibold text-rose-600">-€{totalReductions.toFixed(2)}</span>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={triggerPrint}
+                                            className="w-full mt-5 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2"
+                                        >
+                                            <Icon name="fileText" className="w-4 h-4" />
+                                            <span>Generate Expense PDF</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Daily Schedules */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                                                Day-by-Day Allowances
+                                            </h3>
+                                            <span className="text-xs text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full font-medium">
+                                                {dayCalculation.length} Days Total
+                                            </span>
+                                        </div>
+
+                                        {dayCalculation.length === 0 ? (
+                                            <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center text-neutral-400 text-sm">
+                                                Enter valid dates and stop locations to trigger daily schedules automatically.
+                                            </div>
+                                        ) : (
+                                            dayCalculation.map((day, dIdx) => {
+                                                return (
+                                                    <div key={day.date} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm hover:border-neutral-300 transition-colors">
+                                                        <div className="flex items-start justify-between mb-3">
+                                                            <div>
+                                                                <span className="text-xs font-bold text-neutral-400 block font-mono">
+                                                                    Day {dIdx + 1} • {day.dayOfWeek} {day.date}
+                                                                </span>
+                                                                <span className="text-sm font-bold text-neutral-900 inline-flex items-center mt-0.5">
+                                                                    <div className="text-neutral-400 mr-1"><Icon name="mapPin" className="w-3.5 h-3.5" /></div>
+                                                                    {rates[day.location]?.name || day.location}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <span className="text-xs font-medium text-neutral-400 block">
+                                                                    {day.statusText}
+                                                                </span>
+                                                                <span className="text-sm font-semibold text-neutral-500 line-through mr-1.5">
+                                                                    {day.baseAllowance !== day.netAllowance && `€${day.baseAllowance}`}
+                                                                </span>
+                                                                <span className="text-base font-extrabold text-neutral-900">
+                                                                    €{day.netAllowance.toFixed(2)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Meal Selectors */}
+                                                        <div className="mt-3 pt-3 border-t border-neutral-100">
+                                                            <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide mb-2">
+                                                                Meals provided on this day:
+                                                            </p>
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                
+                                                                <button
+                                                                    onClick={() => toggleMeal(day.nodeId, day.date, 'breakfast')}
+                                                                    className={`flex items-center space-x-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
+                                                                        day.breakfastProvided 
+                                                                            ? "bg-rose-50 border-rose-200 text-rose-700" 
+                                                                            : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+                                                                    }`}
+                                                                >
+                                                                    <Icon name="coffee" className="w-3.5 h-3.5 flex-shrink-0" />
+                                                                    <span className="truncate">Breakfast (-20%)</span>
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => toggleMeal(day.nodeId, day.date, 'lunch')}
+                                                                    className={`flex items-center space-x-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
+                                                                        day.lunchProvided 
+                                                                            ? "bg-rose-50 border-rose-200 text-rose-700" 
+                                                                            : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+                                                                    }`}
+                                                                >
+                                                                    <Icon name="utensils" className="w-3.5 h-3.5 flex-shrink-0" />
+                                                                    <span className="truncate">Lunch (-40%)</span>
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => toggleMeal(day.nodeId, day.date, 'dinner')}
+                                                                    className={`flex items-center space-x-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
+                                                                        day.dinnerProvided 
+                                                                            ? "bg-rose-50 border-rose-200 text-rose-700" 
+                                                                            : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+                                                                    }`}
+                                                                >
+                                                                    <Icon name="utensils" className="w-3.5 h-3.5 flex-shrink-0" />
+                                                                    <span className="truncate">Dinner (-40%)</span>
+                                                                </button>
+
+                                                            </div>
+
+                                                            {day.totalDeductionsForDay > 0 && (
+                                                                <div className="mt-2 text-[10px] text-rose-600 font-medium flex items-center justify-end">
+                                                                    <span>Meal reductions: -€{day.totalDeductionsForDay.toFixed(2)} (of 24h rate €{day.fullRate})</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {}
+                        {activeTab === "rates" && (
+                            <div className="lg:col-span-12 flex flex-col space-y-6">
+                                <div className="text-center max-w-2xl mx-auto py-6">
+                                    <h1 className="text-3xl font-extrabold text-neutral-900 tracking-tight">
+                                        BMF Rates Directory
+                                    </h1>
+                                    <p className="text-sm text-neutral-500 mt-2">
+                                        Manage, edit, or upload current official German Federal Ministry of Finance (*Bundesministerium der Finanzen*) rates table. Keep your company allowances 100% compliant.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    
+                                    {/* Upload Area */}
+                                    <div 
+                                        onDragEnter={handleDrag}
+                                        onDragOver={handleDrag}
+                                        onDragLeave={handleDrag}
+                                        onDrop={handleDrop}
+                                        className={`border-2 border-dashed rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all cursor-pointer ${
+                                            dragActive 
+                                                ? "border-neutral-950 bg-neutral-50" 
+                                                : "border-neutral-200 hover:border-neutral-400 bg-white"
+                                        }`}
+                                        onClick={() => fileInputRef.current.click()}
+                                    >
+                                        <input 
+                                            ref={fileInputRef}
+                                            type="file" 
+                                            className="hidden" 
+                                            accept=".csv,.json"
+                                            onChange={handleFileChange}
+                                        />
+                                        <div className="h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 mb-3">
+                                            <Icon name="upload" className="w-5 h-5" />
+                                        </div>
+                                        <h3 className="font-semibold text-neutral-900 text-sm">Upload Custom BMF File</h3>
+                                        <p className="text-xs text-neutral-400 mt-1 max-w-xs">
+                                            Drag and drop your updated official `.csv` or `.json` file of country rates here.
+                                        </p>
+                                        <div className="mt-4 flex items-center space-x-2">
+                                            <button 
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); downloadSampleCSV(); }}
+                                                className="text-xs text-neutral-500 hover:text-neutral-900 underline flex items-center space-x-1"
+                                            >
+                                                <Icon name="download" className="w-3 h-3" />
+                                                <span>Download CSV Template</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Manual Entry override form */}
+                                    <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs">
+                                        <h3 className="font-semibold text-neutral-900 text-sm mb-1">Add or Override Single Location</h3>
+                                        <p className="text-xs text-neutral-400 mb-4">Input custom values or test updates directly.</p>
+
+                                        <form onSubmit={addCustomRate} className="space-y-4">
+                                            <div>
+                                                <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
+                                                    Location / Region Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    placeholder="e.g. Switzerland (Zurich)"
+                                                    value={customCountryName}
+                                                    onChange={(e) => setCustomCountryName(e.target.value)}
+                                                    className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-800 font-medium"
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
+                                                        Full Rate (24h)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        required
+                                                        value={customFullRate}
+                                                        onChange={(e) => setCustomFullRate(e.target.value)}
+                                                        className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[11px] font-medium text-neutral-400 uppercase mb-1">
+                                                        Small Rate (Arrival/Dep)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        required
+                                                        value={customSmallRate}
+                                                        onChange={(e) => setCustomSmallRate(e.target.value)}
+                                                        className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                type="submit"
+                                                className="w-full bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-semibold py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center space-x-2"
+                                            >
+                                                <Icon name="plus" className="w-4 h-4" />
+                                                <span>Register New Rate</span>
+                                            </button>
+                                        </form>
+                                    </div>
+
+                                </div>
+
+                                {/* Active BMF Catalog Database */}
+                                <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden shadow-xs">
+                                    <div className="p-4 border-b border-neutral-100 flex items-center justify-between">
+                                        <h3 className="font-semibold text-neutral-900 text-sm">
+                                            Active BMF Database Catalog
+                                        </h3>
+                                        <div className="relative">
+                                            <div className="absolute left-2.5 top-2.5 text-neutral-400"><Icon name="search" className="w-4 h-4" /></div>
+                                            <input
+                                                type="text"
+                                                placeholder="Search locations..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="pl-8 pr-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 w-48 md:w-64"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm text-neutral-700">
+                                            <thead className="bg-neutral-50 text-[10px] text-neutral-400 uppercase font-bold tracking-wider border-b border-neutral-100">
+                                                <tr>
+                                                    <th className="py-3 px-6">Location</th>
+                                                    <th className="py-3 px-6">Full Day (&ge;24 Hours)</th>
+                                                    <th className="py-3 px-6">Small Day (8-24h &amp; Arrival/Departure)</th>
+                                                    <th className="py-3 px-6 text-right">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-neutral-100 font-medium">
+                                                {Object.keys(rates)
+                                                    .filter(key => rates[key].name.toLowerCase().includes(searchQuery.toLowerCase()))
+                                                    .map(key => {
+                                                        const item = rates[key];
+                                                        return (
+                                                            <tr key={key} className="hover:bg-neutral-50/50 transition-colors">
+                                                                <td className="py-3.5 px-6 font-semibold text-neutral-900">{item.name}</td>
+                                                                <td className="py-3.5 px-6">€{item.full.toFixed(2)}</td>
+                                                                <td className="py-3.5 px-6">€{item.small.toFixed(2)}</td>
+                                                                <td className="py-3.5 px-6 text-right">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const updated = { ...rates };
+                                                                            delete updated[key];
+                                                                            setRates(updated);
+                                                                            triggerToast(`Deleted ${item.name} from catalog overrides`, "success");
+                                                                        }}
+                                                                        className="text-rose-600 hover:text-rose-800 text-xs transition-colors"
+                                                                    >
+                                                                        Delete
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                            </div>
+                        )}
+
+                    </main>
+
+                    {}
+                    {/* Invoice-friendly printed template layout */}
+                    <div id="print-section" className="hidden print:block p-8 bg-white text-black font-sans w-full leading-normal">
+                        <div className="flex justify-between items-start border-b-2 border-neutral-950 pb-6 mb-8">
+                            <div>
+                                <h1 className="text-2xl font-black uppercase tracking-tight">German Travel Expense Statement</h1>
+                                <p className="text-xs text-neutral-500 mt-1">Verpflegungsmehraufwand (BMF tax calculation)</p>
+                            </div>
+                            <div className="text-right">
+                                <span className="block font-bold text-sm">Statement Date</span>
+                                <span className="text-xs">{new Date().toLocaleDateString("en-US")}</span>
+                            </div>
+                        </div>
+
+                        {/* Itinerary Nodes */}
+                        <div className="mb-8">
+                            <h2 className="text-sm font-bold uppercase tracking-wide border-b border-neutral-300 pb-1 mb-3">Travel Topology Timeline</h2>
+                            <div className="space-y-2">
+                                {nodes.map((node, i) => (
+                                    <div key={node.id} className="text-xs flex justify-between">
+                                        <span><strong>Node {i + 1} ({node.role.toUpperCase()}):</strong> {node.location}</span>
+                                        <span className="font-mono">{new Date(node.dateTime).toLocaleString("en-US")}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Breakdown */}
+                        <div className="mb-8">
+                            <h2 className="text-sm font-bold uppercase tracking-wide border-b border-neutral-300 pb-1 mb-3">Claim Breakdown by Day</h2>
+                            <table className="w-full text-left text-xs">
+                                <thead>
+                                    <tr className="border-b border-neutral-300 bg-neutral-100 font-bold">
+                                        <th className="p-2">Day Date</th>
+                                        <th className="p-2">Applicable Location</th>
+                                        <th className="p-2">Status Type</th>
+                                        <th className="p-2">Full Rate</th>
+                                        <th className="p-2">Base</th>
+                                        <th className="p-2">Meals Deductions</th>
+                                        <th className="p-2 text-right">Net Reimbursement</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {dayCalculation.map((day, idx) => (
+                                        <tr key={idx} className="border-b border-neutral-200">
+                                            <td className="p-2 font-mono">{day.date}</td>
+                                            <td className="p-2">{rates[day.location]?.name || day.location}</td>
+                                            <td className="p-2">{day.statusText}</td>
+                                            <td className="p-2">€{day.fullRate}</td>
+                                            <td className="p-2">€{day.baseAllowance}</td>
+                                            <td className="p-2">
+                                                {day.breakfastProvided && "Breakfast(-20%) "}
+                                                {day.lunchProvided && "Lunch(-40%) "}
+                                                {day.dinnerProvided && "Dinner(-40%)"}
+                                                {day.totalDeductionsForDay > 0 ? ` (-€${day.totalDeductionsForDay.toFixed(2)})` : "None"}
+                                            </td>
+                                            <td className="p-2 text-right font-bold">€{day.netAllowance.toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Totals */}
+                        <div className="flex justify-end pt-4 border-t border-neutral-400">
+                            <div className="text-right space-y-1">
+                                <div className="text-xs">Base Sum: €{originalTotal.toFixed(2)}</div>
+                                <div className="text-xs text-rose-600">Total Deductions: -€{totalReductions.toFixed(2)}</div>
+                                <div className="text-base font-black border-t border-neutral-950 pt-2">
+                                    Payable Allowance Sum: €{totalClaim.toFixed(2)} EUR
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Audit Signatures */}
+                        <div className="mt-16 grid grid-cols-2 gap-12 text-center text-xs">
+                            <div className="border-t border-neutral-400 pt-3">
+                                <span className="block font-bold">Traveler's Signature</span>
+                                <span className="text-neutral-400">Date: ________________________</span>
+                            </div>
+                            <div className="border-t border-neutral-400 pt-3">
+                                <span className="block font-bold">Authorized Auditor / Accounting Signature</span>
+                                <span className="text-neutral-400">Date: ________________________</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            );
+        }
+
+        // Mount App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
