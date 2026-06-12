@@ -177,7 +177,10 @@
         function loadFromStorage(key, fallback) {
             try {
                 const raw = localStorage.getItem(key);
-                if (raw) return JSON.parse(raw);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed !== null) return parsed;
+                }
             } catch (e) { /* corrupted data — fall through */ }
             return fallback;
         }
@@ -220,31 +223,34 @@
                 const isLastDay = index === dayList.length - 1;
                 const isSingleDayTrip = dayList.length === 1;
 
-                // Calculate active hours for the day
+                // Calculate active hours using wall-clock time (DST-safe)
                 let activeHoursToday = 24;
                 if (isSingleDayTrip) {
-                    activeHoursToday = (endTime - startTime) / (1000 * 60 * 60);
+                    const startMins = startTime.getHours() * 60 + startTime.getMinutes();
+                    const endMins = endTime.getHours() * 60 + endTime.getMinutes();
+                    activeHoursToday = (endMins - startMins) / 60;
                 } else if (isFirstDay) {
-                    const midnight = new Date(dayDate);
-                    midnight.setHours(24, 0, 0, 0);
-                    activeHoursToday = (midnight - startTime) / (1000 * 60 * 60);
+                    const startMins = startTime.getHours() * 60 + startTime.getMinutes();
+                    activeHoursToday = (1440 - startMins) / 60;
                 } else if (isLastDay) {
-                    const startOfToday = new Date(dayDate);
-                    activeHoursToday = (endTime - startOfToday) / (1000 * 60 * 60);
+                    const endMins = endTime.getHours() * 60 + endTime.getMinutes();
+                    activeHoursToday = endMins / 60;
                 }
 
                 // Determine applicable location AND track which node set it
                 // (used for meal lookup — fixes the old broken fallback chain)
                 let applicableLocation = "Germany";
                 let activeNodeId = sortedNodes[0].id;
-                const dayEndMs = dayDate.getTime() + 24 * 60 * 60 * 1000 - 1;
+                const dayEnd = new Date(dayDate);
+                dayEnd.setHours(23, 59, 59, 999);
+                const dayEndMs = dayEnd.getTime();
 
                 for (let i = 0; i < sortedNodes.length; i++) {
                     const nodeTime = new Date(sortedNodes[i].dateTime);
                     if (nodeTime.getTime() <= dayEndMs) {
                         if (isLastDay && sortedNodes[i].role === 'end') {
                             // Return day: use last foreign destination's rate (Mitternachtsprinzip)
-                            const prevForeignNode = sortedNodes.slice(0, i).reverse().find(n => n.role === 'destination');
+                            const prevForeignNode = sortedNodes.slice(0, i).reverse().find(n => n.role !== 'end');
                             if (prevForeignNode) {
                                 applicableLocation = prevForeignNode.location;
                                 activeNodeId = prevForeignNode.id;
@@ -418,7 +424,8 @@
             // ─── Node operations ──────────────────────────────────────────────
             const addNode = (index) => {
                 const prevNode = nodes[index];
-                const prevDate = prevNode ? new Date(prevNode.dateTime) : new Date();
+                let prevDate = prevNode ? new Date(prevNode.dateTime) : new Date();
+                if (isNaN(prevDate.getTime())) prevDate = new Date();
                 const nextDate = new Date(prevDate);
                 nextDate.setDate(nextDate.getDate() + 1);
 
@@ -873,7 +880,7 @@
 
                                         <div className="flex items-baseline space-x-1 mt-2">
                                             <span className="text-5xl font-black text-neutral-950 tracking-tight">
-                                                {rates[Object.keys(rates)[0]]?.currency || 'EUR'}{totalClaim.toFixed(2)}
+                                                EUR{totalClaim.toFixed(2)}
                                             </span>
                                             <span className="text-sm font-medium text-neutral-500">EUR</span>
                                         </div>
@@ -932,7 +939,7 @@
                                                                     {day.statusText}
                                                                 </span>
                                                                 <span className="text-sm font-semibold text-neutral-500 line-through mr-1.5">
-                                                                    {day.baseAllowance !== day.netAllowance && `${rates[Object.keys(rates)[0]]?.currency || 'EUR'}${day.baseAllowance}`}
+                                                                    {day.baseAllowance !== day.netAllowance && `${rates[day.location]?.currency || 'EUR'}${day.baseAllowance}`}
                                                                 </span>
                                                                 <span className="text-base font-extrabold text-neutral-900">
                                                                     {rates[day.location]?.currency || 'EUR'}{day.netAllowance.toFixed(2)}
