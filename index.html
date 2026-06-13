@@ -757,7 +757,7 @@
                                     </div>
 
                                     {/* Graphical Nodes */}
-                                    <div className="bg-white rounded-2xl border border-neutral-200/80 p-5 md:p-6 shadow-sm relative overflow-hidden">
+                                    <div className="bg-white rounded-2xl border border-neutral-200/80 p-3 sm:p-5 md:p-6 shadow-sm relative overflow-hidden">
                                         <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-100">
                                             <div className="flex items-center space-x-2">
                                                 <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
@@ -768,7 +768,7 @@
                                             </span>
                                         </div>
 
-                                        <div className="relative pl-7 sm:pl-8 md:pl-12 space-y-6 sm:space-y-8 before:absolute before:left-[15px] sm:before:left-[19px] md:before:left-[27px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-neutral-900 before:via-neutral-200 before:to-emerald-500">
+                                        <div className="relative pl-6 sm:pl-8 md:pl-12 space-y-4 sm:space-y-8 before:absolute before:left-[11px] sm:before:left-[19px] md:before:left-[27px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-neutral-900 before:via-neutral-200 before:to-emerald-500">
 
                                             {nodes.map((node, idx) => {
                                                 const isStart = node.role === "start";
@@ -792,7 +792,7 @@
                                                         </div>
 
                                                         {/* Panel Inputs */}
-                                                        <div className="bg-neutral-50 hover:bg-neutral-100/70 border border-neutral-200 rounded-xl p-4 transition-all duration-200">
+                                                        <div className="bg-neutral-50 hover:bg-neutral-100/70 border border-neutral-200 rounded-xl p-3 sm:p-4 transition-all duration-200 overflow-hidden">
                                                             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
 
                                                                 <div className="md:col-span-2">
@@ -819,7 +819,7 @@
                                                                             id={`loc-${node.id}`}
                                                                             value={node.location}
                                                                             onChange={(e) => updateNodeProperty(node.id, 'location', e.target.value)}
-                                                                            className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900 text-neutral-800 font-medium"
+                                                                            className="w-full max-w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900 text-neutral-800 font-medium"
                                                                         >
                                                                             {Object.keys(rates).sort((a, b) => rates[a].name.localeCompare(rates[b].name)).map(loc => (
                                                                                 <option key={loc} value={loc}>
@@ -843,7 +843,7 @@
                                                                             type="datetime-local"
                                                                             value={node.dateTime}
                                                                             onChange={(e) => updateNodeProperty(node.id, 'dateTime', e.target.value)}
-                                                                            className="w-full min-w-0 pl-9 pr-2 py-1 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
+                                                                            className="w-full min-w-0 max-w-full pl-9 pr-2 py-1 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
                                                                         />
                                                                     </div>
                                                                 </div>
