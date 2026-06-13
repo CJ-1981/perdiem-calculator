@@ -370,10 +370,15 @@
                 const customOverrides = loadFromStorage('perdiem-custom-rates', {});
                 fetchBMFRates().then(baseData => {
                     baseRatesRef.current = baseData;
+                    try { localStorage.setItem('perdiem-base-rates', JSON.stringify(baseData)); } catch (e) {}
                     setRates({ ...baseData, ...customOverrides });
                     setRatesLoaded(true);
                 }).catch(err => {
-                    // Network error — use cached full rates if available, else emergency fallback
+                    // Network error — restore cached base rates so override diffing works
+                    const cachedBase = loadFromStorage('perdiem-base-rates', {});
+                    if (cachedBase && Object.keys(cachedBase).length > 0) {
+                        baseRatesRef.current = cachedBase;
+                    }
                     const cached = loadFromStorage('perdiem-rates', null);
                     if (cached && Object.keys(cached).length > 0) {
                         setRates(cached);
