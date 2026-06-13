@@ -169,7 +169,6 @@
             if (localStorage.getItem('perdiem-cache-version') !== RATES_CACHE_VERSION) {
                 localStorage.removeItem('perdiem-base-rates');
                 localStorage.removeItem('perdiem-rates');
-                localStorage.removeItem('perdiem-custom-rates');
                 localStorage.setItem('perdiem-cache-version', RATES_CACHE_VERSION);
             }
         } catch (e) {}
@@ -582,7 +581,7 @@
                                             full: fullVal,
                                             small: smallVal,
                                             currency: parsed[k].currency || "EUR",
-                                            ...(parsed[k].lodging ? { lodging: parseFloat(parsed[k].lodging) } : {})
+                                            ...(parsed[k].lodging !== undefined ? { lodging: parseFloat(parsed[k].lodging) } : {})
                                         };
                                     }
                                 }
@@ -1317,7 +1316,7 @@
                                             <td className="p-2 font-mono">{day.date}</td>
                                             <td className="p-2">{rates[day.location]?.name || day.location}</td>
                                             <td className="p-2">{day.statusText}</td>
-                                            <td className="p-2">{rates[day.location]?.currency || 'EUR'}{day.fullRate} / {day.fullRate * 2/3 > day.smallRate ? day.smallRate : (day.fullRate * 2/3).toFixed(2)}</td>
+                                            <td className="p-2">{rates[day.location]?.currency || 'EUR'}{day.fullRate} / {day.smallRate}</td>
                                             <td className="p-2">{rates[day.location]?.lodging ? `${rates[day.location]?.currency}${rates[day.location].lodging}` : '—'}</td>
                                             <td className="p-2">{rates[day.location]?.currency || 'EUR'}{day.baseAllowance}</td>
                                             <td className="p-2">
