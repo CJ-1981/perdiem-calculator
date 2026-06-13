@@ -379,7 +379,8 @@
                         setRates(cached);
                         triggerToast('Using cached rates (offline mode)', 'info');
                     } else {
-                        setRatesError(err.message);
+                        setRates({ ...EMERGENCY_FALLBACK_RATES, ...customOverrides });
+                        triggerToast('Using emergency fallback rates (offline mode)', 'info');
                     }
                     setRatesLoaded(true);
                 });
@@ -421,14 +422,18 @@
                 if (!ratesLoaded || Object.keys(rates).length === 0) return;
                 try {
                     const base = baseRatesRef.current;
-                    const overrides = {};
-                    for (const key of Object.keys(rates)) {
-                        if (!base[key] || JSON.stringify(rates[key]) !== JSON.stringify(base[key])) {
-                            overrides[key] = rates[key];
+                    // Only compute overrides when base rates have been loaded (prevents
+                    // silent data corruption when offline with empty baseRatesRef)
+                    if (base && Object.keys(base).length > 0) {
+                        const overrides = {};
+                        for (const key of Object.keys(rates)) {
+                            if (!base[key] || JSON.stringify(rates[key]) !== JSON.stringify(base[key])) {
+                                overrides[key] = rates[key];
+                            }
                         }
+                        localStorage.setItem('perdiem-custom-rates', JSON.stringify(overrides));
                     }
-                    localStorage.setItem('perdiem-custom-rates', JSON.stringify(overrides));
-                    // Also keep a full snapshot for offline fallback
+                    // Always keep a full snapshot for offline fallback
                     localStorage.setItem('perdiem-rates', JSON.stringify(rates));
                 } catch (e) {}
             }, [rates, ratesLoaded]);
