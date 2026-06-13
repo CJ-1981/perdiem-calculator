@@ -162,7 +162,18 @@
             ];
         }
 
-        // ─── localStorage helpers ─────────────────────────────────────────────
+        // ─── Cache version — bump to clear stale localStorage on rate structure changes ─
+        const RATES_CACHE_VERSION = 'v3-lodging';
+        // Clear legacy caches on structure change
+        try {
+            if (localStorage.getItem('perdiem-cache-version') !== RATES_CACHE_VERSION) {
+                localStorage.removeItem('perdiem-base-rates');
+                localStorage.removeItem('perdiem-rates');
+                localStorage.removeItem('perdiem-custom-rates');
+                localStorage.setItem('perdiem-cache-version', RATES_CACHE_VERSION);
+            }
+        } catch (e) {}
+
         function loadFromStorage(key, fallback) {
             try {
                 const raw = localStorage.getItem(key);
@@ -570,7 +581,8 @@
                                             name: parsed[k].name || k,
                                             full: fullVal,
                                             small: smallVal,
-                                            currency: parsed[k].currency || "EUR"
+                                            currency: parsed[k].currency || "EUR",
+                                            ...(parsed[k].lodging ? { lodging: parseFloat(parsed[k].lodging) } : {})
                                         };
                                     }
                                 }
@@ -823,7 +835,7 @@
                                                                         >
                                                                             {Object.keys(rates).sort((a, b) => rates[a].name.localeCompare(rates[b].name)).map(loc => (
                                                                                 <option key={loc} value={loc}>
-                                                                                    {rates[loc].name} ({rates[loc].currency}{rates[loc].full}/{rates[loc].small})
+                                                                                    {rates[loc].name} — {rates[loc].currency}{rates[loc].full}/{rates[loc].small}{rates[loc].lodging ? ` + ${rates[loc].lodging} lodging` : ''}
                                                                                 </option>
                                                                             ))}
                                                                         </select>
@@ -1292,7 +1304,8 @@
                                         <th className="p-2">Day Date</th>
                                         <th className="p-2">Applicable Location</th>
                                         <th className="p-2">Status Type</th>
-                                        <th className="p-2">Full Rate</th>
+                                        <th className="p-2">Full / Small</th>
+                                        <th className="p-2">Lodging</th>
                                         <th className="p-2">Base</th>
                                         <th className="p-2">Meals Deductions</th>
                                         <th className="p-2 text-right">Net Reimbursement</th>
@@ -1304,7 +1317,8 @@
                                             <td className="p-2 font-mono">{day.date}</td>
                                             <td className="p-2">{rates[day.location]?.name || day.location}</td>
                                             <td className="p-2">{day.statusText}</td>
-                                            <td className="p-2">{rates[day.location]?.currency || 'EUR'}{day.fullRate}</td>
+                                            <td className="p-2">{rates[day.location]?.currency || 'EUR'}{day.fullRate} / {day.fullRate * 2/3 > day.smallRate ? day.smallRate : (day.fullRate * 2/3).toFixed(2)}</td>
+                                            <td className="p-2">{rates[day.location]?.lodging ? `${rates[day.location]?.currency}${rates[day.location].lodging}` : '—'}</td>
                                             <td className="p-2">{rates[day.location]?.currency || 'EUR'}{day.baseAllowance}</td>
                                             <td className="p-2">
                                                 {day.breakfastProvided && "Breakfast(-20%) "}
