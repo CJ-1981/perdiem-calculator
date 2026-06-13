@@ -30,26 +30,26 @@ The interface adapts to narrow viewports with touch-friendly controls, scrollabl
 
 ## **Key Features & Calculations**
 
-### **1\. Border Crossing (Mitternachtsprinzip)**
+### **1. Border Crossing (Mitternachtsprinzip)**
 
 Following modern German income tax regulations (§ 4 Abs. 5 Satz 1 Nr. 5 EStG), if a traveler crosses multiple borders, the allowance is decided by the destination reached *last* on that day before midnight (24:00).
 
 * On return trips back home, the rate of the last active foreign location dictates the claim payout.
 
-### **2\. Multi-Stop Node Topology Timeline**
+### **2. Multi-Stop Node Topology Timeline**
 
 You can dynamically build your itinerary by adding visual node markers representing your stops. Adding or rearranging dates triggers real-time visual line connection updates and generates correct individual daily rows.
 
-### **3\. Meal Deductions**
+### **3. Meal Deductions**
 
 Provided meals (e.g. at hotels, client events, or flights) must lead to legal reductions from the full 24h allowance rate of that respective location:
 
-* **Breakfast:** \-20% of the full daily rate.
-* **Lunch:** \-40% of the full daily rate.
-* **Dinner:** \-40% of the full daily rate.
+* **Breakfast:** -20% of the full daily rate.
+* **Lunch:** -40% of the full daily rate.
+* **Dinner:** -40% of the full daily rate.
 * *Calculation safeguard:* Payout cannot fall below €0 for any given day.
 
-### **4\. BMF Directory CSV/JSON Integration**
+### **4. BMF Directory CSV/JSON Integration**
 
 Supports importing custom external BMF tables via CSV or JSON, matching:
 
@@ -59,7 +59,7 @@ Location, FullRate, SmallRate, Currency
 
 Files can be uploaded via the file picker or drag-and-dropped onto the page.
 
-### **5\. Dynamic Rate Loading**
+### **5. Dynamic Rate Loading**
 
 BMF rates are loaded from an external `bmf-rates.json` file at runtime, covering **157 worldwide locations**. This enables independent rate updates without touching application code.
 
@@ -67,7 +67,7 @@ BMF rates are loaded from an external `bmf-rates.json` file at runtime, covering
 * **Offline:** Falls back to cached rates (with a toast notification), or to a minimal emergency fallback if no cache exists.
 * **Custom overrides** are persisted separately from the base rates, ensuring they survive both offline sessions and future base rate updates.
 
-### **6\. Print-Ready Expense Statement**
+### **6. Print-Ready Expense Statement**
 
 One-click print layout generates a formatted expense statement with daily breakdowns, totals, and audit signature lines — optimized for paper or PDF output.
 
