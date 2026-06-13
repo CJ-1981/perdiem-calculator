@@ -32,7 +32,7 @@
         }
     </style>
 </head>
-<body class="bg-[#fafafa] text-neutral-800 antialiased min-h-screen">
+<body class="bg-[#fafafa] text-neutral-800 antialiased min-h-screen overflow-x-hidden">
 
     <div id="root"></div>
 
@@ -678,21 +678,21 @@
 
                     {/* Navigation Header */}
                     <header className="border-b border-neutral-100 bg-white sticky top-0 z-40">
-                        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className="h-9 w-9 bg-neutral-900 rounded-lg flex items-center justify-center text-white font-semibold shadow-sm">
+                        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
+                            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+                                <div className="h-8 w-8 sm:h-9 sm:w-9 bg-neutral-900 rounded-lg flex items-center justify-center text-white font-semibold shadow-sm flex-shrink-0">
                                     DE
                                 </div>
-                                <div>
-                                    <span className="font-bold tracking-tight text-neutral-900">PerDiem</span>
-                                    <span className="text-neutral-400 text-xs font-mono ml-2">v2026.1</span>
+                                <div className="min-w-0">
+                                    <span className="font-bold tracking-tight text-neutral-900 text-sm sm:text-base">PerDiem</span>
+                                    <span className="text-neutral-400 text-[10px] sm:text-xs font-mono ml-1 sm:ml-2">v2026.1</span>
                                 </div>
                             </div>
 
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                                 <button
                                     onClick={() => setActiveTab("timeline")}
-                                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                    className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors ${
                                         activeTab === "timeline"
                                             ? "bg-neutral-900 text-white"
                                             : "text-neutral-600 hover:bg-neutral-100"
@@ -702,7 +702,7 @@
                                 </button>
                                 <button
                                     onClick={() => setActiveTab("rates")}
-                                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                    className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-colors ${
                                         activeTab === "rates"
                                             ? "bg-neutral-900 text-white"
                                             : "text-neutral-600 hover:bg-neutral-100"
@@ -749,7 +749,7 @@
                                             </span>
                                         </div>
 
-                                        <div className="relative pl-8 md:pl-12 space-y-8 before:absolute before:left-[19px] md:before:left-[27px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-neutral-900 before:via-neutral-200 before:to-emerald-500">
+                                        <div className="relative pl-7 sm:pl-8 md:pl-12 space-y-6 sm:space-y-8 before:absolute before:left-[15px] sm:before:left-[19px] md:before:left-[27px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-neutral-900 before:via-neutral-200 before:to-emerald-500">
 
                                             {nodes.map((node, idx) => {
                                                 const isStart = node.role === "start";
@@ -760,14 +760,14 @@
                                                     <div key={node.id} className="relative group transition-all duration-300">
 
                                                         {/* Visual Node Pin */}
-                                                        <div className={`absolute -left-[27px] md:-left-[35px] top-1.5 h-6 w-6 md:h-8 md:w-8 rounded-full border-4 flex items-center justify-center transition-transform group-hover:scale-110 z-10 ${
+                                                        <div className={`absolute -left-[23px] sm:-left-[27px] md:-left-[35px] top-1.5 h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 rounded-full border-[3px] sm:border-4 flex items-center justify-center transition-transform group-hover:scale-110 z-10 ${
                                                             isStart
                                                                 ? "bg-neutral-950 border-neutral-100 text-white"
                                                                 : isEnd
                                                                     ? "bg-emerald-500 border-neutral-100 text-white"
                                                                     : "bg-white border-neutral-900 text-neutral-900"
                                                         }`}>
-                                                            <span className="text-[10px] font-bold">
+                                                            <span className="text-[9px] sm:text-[10px] font-bold">
                                                                 {isStart ? "S" : isEnd ? "E" : idx}
                                                             </span>
                                                         </div>
@@ -802,7 +802,7 @@
                                                                             onChange={(e) => updateNodeProperty(node.id, 'location', e.target.value)}
                                                                             className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900 text-neutral-800 font-medium"
                                                                         >
-                                                                            {Object.keys(rates).map(loc => (
+                                                                            {Object.keys(rates).sort((a, b) => rates[a].name.localeCompare(rates[b].name)).map(loc => (
                                                                                 <option key={loc} value={loc}>
                                                                                     {rates[loc].name} ({rates[loc].currency}{rates[loc].full}/{rates[loc].small})
                                                                                 </option>
@@ -844,11 +844,11 @@
 
                                                             </div>
 
-                                                            <div className="mt-2.5 pt-2 border-t border-dashed border-neutral-200 flex flex-wrap items-center justify-between text-xs text-neutral-500">
-                                                                <span>
-                                                                    Active Rate: <strong>{rates[node.location]?.currency || 'EUR'}{rates[node.location]?.full || 28}</strong> / <strong>{rates[node.location]?.currency || 'EUR'}{rates[node.location]?.small || 14}</strong>
+                                                            <div className="mt-2.5 pt-2 border-t border-dashed border-neutral-200 flex flex-wrap items-center justify-between gap-1 text-[11px] sm:text-xs text-neutral-500">
+                                                                <span className="break-all">
+                                                                    Rate: <strong>{rates[node.location]?.currency || 'EUR'}{rates[node.location]?.full || 28}</strong>/<strong>{rates[node.location]?.small || 14}</strong>
                                                                 </span>
-                                                                <span className="font-mono text-neutral-500">
+                                                                <span className="font-mono text-neutral-500 whitespace-nowrap">
                                                                     {formattedDate}
                                                                 </span>
                                                             </div>
@@ -856,7 +856,7 @@
                                                         </div>
 
                                                         {idx < nodes.length - 1 && (
-                                                            <div className="absolute left-[-19px] md:left-[-27px] bottom-[-24px] z-20 group-hover:scale-110 transition-transform">
+                                                            <div className="absolute left-[-15px] sm:left-[-19px] md:left-[-27px] bottom-[-24px] z-20 group-hover:scale-110 transition-transform">
                                                                 <button
                                                                     onClick={() => addNode(idx)}
                                                                     className="h-6 w-6 rounded-full bg-white border border-neutral-300 hover:border-neutral-950 text-neutral-600 hover:text-neutral-950 flex items-center justify-center shadow-sm transition-colors"
@@ -906,7 +906,7 @@
 
                                 {/* Right Side: Calculations Panel */}
                                 <div className="lg:col-span-5 flex flex-col space-y-6">
-                                    <div className="bg-white rounded-2xl border-2 border-neutral-950 p-6 shadow-md relative overflow-hidden">
+                                    <div className="bg-white rounded-2xl border-2 border-neutral-950 p-4 sm:p-6 shadow-md relative overflow-hidden">
                                         <div className="absolute right-0 top-0 translate-x-2 -translate-y-2 text-neutral-50 select-none pointer-events-none font-bold text-7xl">
                                             EUR
                                         </div>
@@ -916,10 +916,10 @@
                                         </p>
 
                                         <div className="flex items-baseline space-x-1 mt-2">
-                                            <span className="text-5xl font-black text-neutral-950 tracking-tight">
+                                            <span className="text-4xl sm:text-5xl font-black text-neutral-950 tracking-tight">
                                                 EUR{totalClaim.toFixed(2)}
                                             </span>
-                                            <span className="text-sm font-medium text-neutral-500">EUR</span>
+                                            <span className="text-xs sm:text-sm font-medium text-neutral-500">EUR</span>
                                         </div>
 
                                         <div className="mt-4 pt-4 border-t border-neutral-100 grid grid-cols-2 gap-4">
@@ -989,7 +989,7 @@
                                                             <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide mb-2">
                                                                 Meals provided on this day:
                                                             </p>
-                                                            <div className="grid grid-cols-3 gap-2">
+                                                            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
 
                                                                 <button
                                                                     onClick={() => toggleMeal(day.nodeId, day.date, 'breakfast')}
@@ -1001,12 +1001,13 @@
                                                                     aria-label={`Toggle breakfast for ${day.date}`}
                                                                 >
                                                                     <Icon name="coffee" className="w-3.5 h-3.5 flex-shrink-0" />
-                                                                    <span className="truncate">Breakfast (-20%)</span>
+                                                                    <span className="truncate">Breakfast</span>
+                                                                    <span className="hidden sm:inline">(-20%)</span>
                                                                 </button>
 
                                                                 <button
                                                                     onClick={() => toggleMeal(day.nodeId, day.date, 'lunch')}
-                                                                    className={`flex items-center space-x-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
+                                                                    className={`flex items-center space-x-1 sm:space-x-1.5 px-1.5 sm:px-2 py-1.5 rounded-lg border text-[10px] sm:text-[11px] font-medium transition-all ${
                                                                         day.lunchProvided
                                                                             ? "bg-rose-50 border-rose-200 text-rose-700"
                                                                             : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
@@ -1014,12 +1015,13 @@
                                                                     aria-label={`Toggle lunch for ${day.date}`}
                                                                 >
                                                                     <Icon name="utensils" className="w-3.5 h-3.5 flex-shrink-0" />
-                                                                    <span className="truncate">Lunch (-40%)</span>
+                                                                    <span className="truncate">Lunch</span>
+                                                                    <span className="hidden sm:inline">(-40%)</span>
                                                                 </button>
 
                                                                 <button
                                                                     onClick={() => toggleMeal(day.nodeId, day.date, 'dinner')}
-                                                                    className={`flex items-center space-x-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
+                                                                    className={`flex items-center space-x-1 sm:space-x-1.5 px-1.5 sm:px-2 py-1.5 rounded-lg border text-[10px] sm:text-[11px] font-medium transition-all ${
                                                                         day.dinnerProvided
                                                                             ? "bg-rose-50 border-rose-200 text-rose-700"
                                                                             : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
@@ -1027,7 +1029,8 @@
                                                                     aria-label={`Toggle dinner for ${day.date}`}
                                                                 >
                                                                     <Icon name="utensils" className="w-3.5 h-3.5 flex-shrink-0" />
-                                                                    <span className="truncate">Dinner (-40%)</span>
+                                                                    <span className="truncate">Dinner</span>
+                                                                    <span className="hidden sm:inline">(-40%)</span>
                                                                 </button>
 
                                                             </div>
