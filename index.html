@@ -132,29 +132,22 @@
             return icons[name] || null;
         };
 
-        // ─── DEFAULT OFFICIAL BMF BASELINE DATA ───────────────────────────────
-        const DEFAULT_BMF_RATES = {
-            "Germany": { name: "Germany (Inland)", full: 28, small: 14, currency: "EUR" },
-            "Austria": { name: "Austria", full: 50, small: 33, currency: "EUR" },
-            "Belgium": { name: "Belgium", full: 59, small: 40, currency: "EUR" },
-            "Denmark": { name: "Denmark", full: 75, small: 50, currency: "EUR" },
-            "Finland": { name: "Finland", full: 54, small: 36, currency: "EUR" },
-            "France (Paris)": { name: "France - Paris", full: 58, small: 39, currency: "EUR" },
-            "France (Rest)": { name: "France - Other regions", full: 53, small: 36, currency: "EUR" },
-            "Italy (Rome)": { name: "Italy - Rome", full: 48, small: 32, currency: "EUR" },
-            "Italy (Rest)": { name: "Italy - Other regions", full: 42, small: 28, currency: "EUR" },
-            "Luxembourg": { name: "Luxembourg", full: 63, small: 42, currency: "EUR" },
-            "Netherlands": { name: "Netherlands", full: 58, small: 39, currency: "EUR" },
-            "Spain (Madrid)": { name: "Spain - Madrid", full: 42, small: 28, currency: "EUR" },
-            "Spain (Rest)": { name: "Spain - Other regions", full: 34, small: 23, currency: "EUR" },
-            "Switzerland (Geneva)": { name: "Switzerland - Geneva", full: 70, small: 47, currency: "EUR" },
-            "Switzerland (Rest)": { name: "Switzerland - Other regions", full: 70, small: 47, currency: "EUR" },
-            "United Kingdom (London)": { name: "United Kingdom - London", full: 66, small: 44, currency: "EUR" },
-            "United Kingdom (Rest)": { name: "United Kingdom - Other regions", full: 52, small: 35, currency: "EUR" },
-            "United States (New York)": { name: "United States - New York City", full: 66, small: 44, currency: "EUR" },
-            "United States (Rest)": { name: "United States - Other regions", full: 56, small: 38, currency: "EUR" },
-            "Japan (Tokyo)": { name: "Japan - Tokyo", full: 50, small: 33, currency: "EUR" },
-        };
+        // ─── Load BMF rates dynamically from external JSON file ──────────────
+        async function fetchBMFRates() {
+            try {
+                const response = await fetch('./bmf-rates.json');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                return data;
+            } catch (err) {
+                console.warn('Failed to load bmf-rates.json, using fallback:', err.message);
+                // Minimal emergency fallback so the app remains functional offline
+                return {
+                    "Germany": { name: "Germany (Inland)", full: 28, small: 14, currency: "EUR" },
+                    "Austria": { name: "Austria", full: 50, small: 33, currency: "EUR" },
+                };
+            }
+        }
 
         // ─── Dynamic default nodes (relative to today) ────────────────────────
         function getDefaultNodes() {
@@ -369,9 +362,28 @@
 
         // ─── Main App ─────────────────────────────────────────────────────────
         function App() {
-            const [rates, setRates] = useState(() => loadFromStorage('perdiem-rates', DEFAULT_BMF_RATES));
+            const [rates, setRates] = useState({});
+            const [ratesLoaded, setRatesLoaded] = useState(false);
+            const [ratesError, setRatesError] = useState(null);
             const [activeTab, setActiveTab] = useState("timeline");
             const [searchQuery, setSearchQuery] = useState("");
+
+            // Fetch rates from JSON on mount; localStorage takes precedence if present
+            useEffect(() => {
+                const stored = loadFromStorage('perdiem-rates', null);
+                if (stored && Object.keys(stored).length > 0) {
+                    setRates(stored);
+                    setRatesLoaded(true);
+                } else {
+                    fetchBMFRates().then(data => {
+                        setRates(data);
+                        setRatesLoaded(true);
+                    }).catch(err => {
+                        setRatesError(err.message);
+                        setRatesLoaded(true);
+                    });
+                }
+            }, []);
 
             // Toast with ref-based timer cleanup
             const [toast, setToast] = useState({ show: false, message: "", type: "success" });
@@ -404,16 +416,13 @@
                 try { localStorage.setItem('perdiem-nodes', JSON.stringify(nodes)); } catch (e) {}
             }, [nodes]);
 
-            // Persist rates only when they differ from defaults
+            // Persist rates to localStorage whenever they change
             useEffect(() => {
+                if (!ratesLoaded || Object.keys(rates).length === 0) return;
                 try {
-                    if (JSON.stringify(rates) !== JSON.stringify(DEFAULT_BMF_RATES)) {
-                        localStorage.setItem('perdiem-rates', JSON.stringify(rates));
-                    } else {
-                        localStorage.removeItem('perdiem-rates');
-                    }
+                    localStorage.setItem('perdiem-rates', JSON.stringify(rates));
                 } catch (e) {}
-            }, [rates]);
+            }, [rates, ratesLoaded]);
 
             // Pure computation via useMemo (replaces useEffect + 4 state setters)
             const { dayCalculation, totalClaim, originalTotal, totalReductions } = useMemo(
@@ -618,6 +627,34 @@
                 setNodes(getDefaultNodes());
                 triggerToast("Reset travel nodes back to default schema.", "success");
             };
+
+            if (!ratesLoaded) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-[#fafafa]">
+                        <div className="text-center">
+                            <div className="w-10 h-10 border-[3px] border-neutral-200 border-t-neutral-900 rounded-full animate-spin mx-auto mb-4"></div>
+                            <p className="text-neutral-400 text-sm">Loading BMF rates…</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (ratesError) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-[#fafafa]">
+                        <div className="text-center max-w-sm">
+                            <p className="text-rose-600 font-medium mb-2">Failed to load rates</p>
+                            <p className="text-neutral-400 text-sm mb-4">{ratesError}</p>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="px-4 py-2 bg-neutral-900 text-white text-sm rounded-lg hover:bg-neutral-800 transition-colors"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
                 <div className="min-h-screen bg-[#fafafa] flex flex-col relative pb-16">
