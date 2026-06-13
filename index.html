@@ -3,7 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BMF Daily Allowance Calculator (PerDiem)</title>
+    <title>BMF Per Diem Calculator 2026 – German Travel Expense Reimbursement Tool (Auslandstagegeld Rechner)</title>
+    <meta name="description" content="Free online BMF per diem calculator for German tax-compliant travel expense reimbursement. Covers 147 international locations with 2026 Verpflegungsmehraufwand rates, lodging allowances (Übernachtungspauschale), meal deductions, multi-stop trip planning, and print-ready expense reports. Based on BMF Schreiben from December 2025.">
+    <meta name="keywords" content="BMF per diem calculator, Auslandstagegeld Rechner, Verpflegungsmehraufwand, German travel expenses, Reisepauschalen 2026, Spesenrechner, per diem rates Germany, Auslandsreisen Spesen, BMF Pauschalen, Übernachtungspauschale, meal deduction calculator, German tax travel allowance, Auslandsreisekosten, business travel Germany, expense report generator,tagegeld rechner">
+    <meta name="author" content="CJ-1981">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://cj-1981.github.io/perdiem-calculator/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cj-1981.github.io/perdiem-calculator/">
+    <meta property="og:title" content="BMF Per Diem Calculator 2026 – Free German Travel Expense Tool">
+    <meta property="og:description" content="Calculate tax-compliant German travel expense reimbursements with 2026 BMF per diem rates for 147 countries. Includes lodging allowances, meal deductions, multi-stop trip planning, and printable expense reports.">
+    <meta property="og:image" content="https://cj-1981.github.io/perdiem-calculator/screenshot-trip-planner.png">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="de_DE">
+    <meta property="og:site_name" content="BMF Per Diem Calculator">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://cj-1981.github.io/perdiem-calculator/">
+    <meta name="twitter:title" content="BMF Per Diem Calculator 2026 – Free German Travel Expense Tool">
+    <meta name="twitter:description" content="Calculate tax-compliant German travel expense reimbursements with 2026 BMF rates for 147 countries. Free, no signup required.">
+    <meta name="twitter:image" content="https://cj-1981.github.io/perdiem-calculator/screenshot-trip-planner.png">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "BMF Per Diem Calculator",
+        "alternateName": ["Auslandstagegeld Rechner", "Spesenrechner", "Verpflegungsmehraufwand Rechner"],
+        "description": "Free online calculator for German tax-compliant travel expense reimbursements based on BMF per diem rates (Auslandstagegeld / Verpflegungsmehraufwand) for 147 international destinations.",
+        "url": "https://cj-1981.github.io/perdiem-calculator/",
+        "applicationCategory": "FinanceApplication",
+        "operatingSystem": "Any",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "EUR"
+        },
+        "browserRequirements": "Requires JavaScript. Requires HTML5.",
+        "screenshot": "https://cj-1981.github.io/perdiem-calculator/screenshot-trip-planner.png",
+        "author": {
+            "@type": "Organization",
+            "name": "CJ-1981",
+            "url": "https://github.com/CJ-1981"
+        },
+        "isAccessibleForFree": true,
+        "featureList": [
+            "BMF 2026 per diem rates for 147 countries",
+            "Lodging allowance (Übernachtungspauschale) support",
+            "Meal deduction calculator (breakfast -20%, lunch -40%, dinner -40%)",
+            "Multi-stop trip planner with visual timeline",
+            "Border crossing rule (Mitternachtsprinzip) support",
+            "CSV and JSON rate import",
+            "Print-ready expense statements",
+            "Offline capability with cached rates",
+            "Mobile-responsive design"
+        ],
+        "license": "https://github.com/CJ-1981/perdiem-calculator/blob/main/LICENSE"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What is Auslandstagegeld (foreign per diem allowance)?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Auslandstagegeld is a lump-sum daily allowance for meals and incidental expenses during business trips abroad, published annually by the German Federal Ministry of Finance (BMF). It is tax-free and does not require receipts."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How are meal deductions calculated for German travel expenses?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "German tax law mandates deductions when meals are provided: 20% of the full daily rate for breakfast, 40% for lunch, and 40% for dinner. The total deduction cannot exceed 100% of the daily allowance."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What happens when traveling through multiple countries in one day?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "According to the Mitternachtsprinzip (midnight rule), the per diem rate of the last foreign location reached before midnight applies for the entire day."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Does this calculator include lodging allowances (Übernachtungspauschale)?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes. The calculator includes BMF overnight accommodation lump sums for 146 of 147 locations (Germany inland has no lodging allowance as it uses actual hotel costs)."
+                }
+            }
+        ]
+    }
+    </script>
+
     <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React and ReactDOM CDNs -->
