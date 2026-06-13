@@ -134,20 +134,16 @@
 
         // ─── Load BMF rates dynamically from external JSON file ──────────────
         async function fetchBMFRates() {
-            try {
-                const response = await fetch('./bmf-rates.json');
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-                return data;
-            } catch (err) {
-                console.warn('Failed to load bmf-rates.json, using fallback:', err.message);
-                // Minimal emergency fallback so the app remains functional offline
-                return {
-                    "Germany": { name: "Germany (Inland)", full: 28, small: 14, currency: "EUR" },
-                    "Austria": { name: "Austria", full: 50, small: 33, currency: "EUR" },
-                };
-            }
+            const response = await fetch('./bmf-rates.json');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
         }
+
+        // Minimal emergency fallback for offline use
+        const EMERGENCY_FALLBACK_RATES = {
+            "Germany": { name: "Germany (Inland)", full: 28, small: 14, currency: "EUR" },
+            "Austria": { name: "Austria", full: 50, small: 33, currency: "EUR" },
+        };
 
         // ─── Dynamic default nodes (relative to today) ────────────────────────
         function getDefaultNodes() {
@@ -368,21 +364,25 @@
             const [activeTab, setActiveTab] = useState("timeline");
             const [searchQuery, setSearchQuery] = useState("");
 
-            // Fetch rates from JSON on mount; localStorage takes precedence if present
+            // Always fetch fresh base rates; merge with any custom overrides from localStorage
+            const baseRatesRef = useRef({});
             useEffect(() => {
-                const stored = loadFromStorage('perdiem-rates', null);
-                if (stored && Object.keys(stored).length > 0) {
-                    setRates(stored);
+                const customOverrides = loadFromStorage('perdiem-custom-rates', {});
+                fetchBMFRates().then(baseData => {
+                    baseRatesRef.current = baseData;
+                    setRates({ ...baseData, ...customOverrides });
                     setRatesLoaded(true);
-                } else {
-                    fetchBMFRates().then(data => {
-                        setRates(data);
-                        setRatesLoaded(true);
-                    }).catch(err => {
+                }).catch(err => {
+                    // Network error — use cached full rates if available, else emergency fallback
+                    const cached = loadFromStorage('perdiem-rates', null);
+                    if (cached && Object.keys(cached).length > 0) {
+                        setRates(cached);
+                        triggerToast('Using cached rates (offline mode)', 'info');
+                    } else {
                         setRatesError(err.message);
-                        setRatesLoaded(true);
-                    });
-                }
+                    }
+                    setRatesLoaded(true);
+                });
             }, []);
 
             // Toast with ref-based timer cleanup
@@ -416,10 +416,19 @@
                 try { localStorage.setItem('perdiem-nodes', JSON.stringify(nodes)); } catch (e) {}
             }, [nodes]);
 
-            // Persist rates to localStorage whenever they change
+            // Persist only custom overrides (delta from base rates) to localStorage
             useEffect(() => {
                 if (!ratesLoaded || Object.keys(rates).length === 0) return;
                 try {
+                    const base = baseRatesRef.current;
+                    const overrides = {};
+                    for (const key of Object.keys(rates)) {
+                        if (!base[key] || JSON.stringify(rates[key]) !== JSON.stringify(base[key])) {
+                            overrides[key] = rates[key];
+                        }
+                    }
+                    localStorage.setItem('perdiem-custom-rates', JSON.stringify(overrides));
+                    // Also keep a full snapshot for offline fallback
                     localStorage.setItem('perdiem-rates', JSON.stringify(rates));
                 } catch (e) {}
             }, [rates, ratesLoaded]);
