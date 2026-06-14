@@ -1006,10 +1006,11 @@
                                                         </div>
 
                                                         {/* Panel Inputs */}
-                                                        <div className="bg-neutral-50 hover:bg-neutral-100/70 border border-neutral-200 rounded-xl p-3 sm:p-4 transition-all duration-200 overflow-hidden">
-                                                            <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 items-center">
+                                                        <div className="bg-neutral-50 hover:bg-neutral-100/70 border border-neutral-200 rounded-xl p-3 sm:p-4 transition-all duration-200">
 
-                                                                <div className="xl:col-span-2">
+                                                            {/* Row 1: Role + Location + Delete */}
+                                                            <div className="flex items-start gap-3">
+                                                                <div className="shrink-0 pt-4">
                                                                     <span className={`inline-block text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
                                                                         isStart
                                                                             ? "bg-neutral-200 text-neutral-800"
@@ -1021,7 +1022,7 @@
                                                                     </span>
                                                                 </div>
 
-                                                                <div className="xl:col-span-5 relative min-w-0">
+                                                                <div className="flex-1 min-w-0">
                                                                     <label htmlFor={`loc-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
                                                                         Location Destination
                                                                     </label>
@@ -1044,32 +1045,30 @@
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="xl:col-span-4 min-w-0">
-                                                                    <label htmlFor={`dt-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
-                                                                        Date &amp; Time
-                                                                    </label>
-                                                                    <input
-                                                                        id={`dt-${node.id}`}
-                                                                        type="datetime-local"
-                                                                        value={node.dateTime}
-                                                                        onChange={(e) => updateNodeProperty(node.id, 'dateTime', e.target.value)}
-                                                                        className="w-full px-2 py-1 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
-                                                                    />
-                                                                </div>
+                                                                {!isStart && !isEnd && (
+                                                                    <button
+                                                                        onClick={() => removeNode(node.id)}
+                                                                        className="shrink-0 mt-4 p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                                        title="Delete stop"
+                                                                        aria-label="Delete this stop"
+                                                                    >
+                                                                        <Icon name="trash" className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
 
-                                                                <div className="xl:col-span-1 xl:flex justify-end xl:justify-center xl:pt-0">
-                                                                    {!isStart && !isEnd && (
-                                                                        <button
-                                                                            onClick={() => removeNode(node.id)}
-                                                                            className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                                            title="Delete stop"
-                                                                            aria-label="Delete this stop"
-                                                                        >
-                                                                            <Icon name="trash" className="w-4 h-4" />
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-
+                                                            {/* Row 2: Datetime — full width, own row to prevent iOS Safari overflow */}
+                                                            <div className="mt-2.5">
+                                                                <label htmlFor={`dt-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
+                                                                    Date &amp; Time
+                                                                </label>
+                                                                <input
+                                                                    id={`dt-${node.id}`}
+                                                                    type="datetime-local"
+                                                                    value={node.dateTime}
+                                                                    onChange={(e) => updateNodeProperty(node.id, 'dateTime', e.target.value)}
+                                                                    className="w-full px-2 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
+                                                                />
                                                             </div>
 
                                                             <div className="mt-2.5 pt-2 border-t border-dashed border-neutral-200 flex flex-wrap items-center justify-between gap-1 text-[11px] sm:text-xs text-neutral-500">
