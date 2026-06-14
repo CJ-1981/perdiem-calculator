@@ -936,28 +936,6 @@
                         </div>
                     </header>
 
-                    {/* Mobile lodging toggle — sticky bottom bar, hidden on desktop where panel is visible */}
-                    {activeTab === "timeline" && (
-                        <div className="lg:hidden sticky bottom-0 z-30 bg-white border-t border-neutral-200 px-4 py-2.5 safe-area-bottom">
-                            <label className="flex items-center justify-between cursor-pointer select-none">
-                                <span className="flex items-center gap-2 text-xs font-medium text-neutral-700">
-                                    <Icon name="bed" className="w-4 h-4 text-teal-600" />
-                                    {excludeAllLodging ? "Lodging excluded" : "Exclude lodging (company paid)"}
-                                </span>
-                                <span className="relative inline-block w-10 align-middle select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={excludeAllLodging}
-                                        onChange={() => setExcludeAllLodging(v => !v)}
-                                        className="sr-only peer"
-                                    />
-                                    <span className="block h-6 bg-neutral-300 rounded-full peer-checked:bg-teal-600 transition-colors"></span>
-                                    <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm peer-checked:translate-x-4 transition-transform"></span>
-                                </span>
-                            </label>
-                        </div>
-                    )}
-
                     <main id="main-content" className="flex-1 max-w-6xl w-full mx-auto px-4 md:px-6 py-4 md:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 min-w-0">
 
                         {activeTab === "timeline" && (
@@ -971,6 +949,25 @@
                                         <p className="text-neutral-500 mt-2 text-sm md:text-base max-w-xl">
                                             Build your travel itinerary below. The calculator processes arrival, departures, and full stay rules automatically.
                                         </p>
+                                    </div>
+
+                                    {/* Exclude Lodging Toggle */}
+                                    <div className="flex items-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => setExcludeAllLodging(v => !v)}
+                                            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
+                                                excludeAllLodging
+                                                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                                                    : 'bg-white text-neutral-600 border-neutral-300 hover:border-teal-400 hover:text-teal-700'
+                                            }`}
+                                        >
+                                            <Icon name="bed" className="w-4 h-4" />
+                                            {excludeAllLodging ? 'Lodging Excluded' : 'Exclude Lodging'}
+                                        </button>
+                                        {excludeAllLodging && (
+                                            <span className="ml-2.5 text-xs text-teal-600 font-medium">Company paid — lodging removed from totals</span>
+                                        )}
                                     </div>
 
                                     {/* Graphical Nodes */}
@@ -1047,22 +1044,17 @@
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="xl:col-span-4">
+                                                                <div className="xl:col-span-4 min-w-0">
                                                                     <label htmlFor={`dt-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
                                                                         Date &amp; Time
                                                                     </label>
-                                                                    <div className="relative">
-                                                                        <div className="absolute left-2 top-2.5 text-neutral-400">
-                                                                            <Icon name="clock" className="w-3.5 h-3.5" />
-                                                                        </div>
-                                                                        <input
-                                                                            id={`dt-${node.id}`}
-                                                                            type="datetime-local"
-                                                                            value={node.dateTime}
-                                                                            onChange={(e) => updateNodeProperty(node.id, 'dateTime', e.target.value)}
-                                                                            className="w-full pl-7 sm:pl-9 pr-2 py-1 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
-                                                                        />
-                                                                    </div>
+                                                                    <input
+                                                                        id={`dt-${node.id}`}
+                                                                        type="datetime-local"
+                                                                        value={node.dateTime}
+                                                                        onChange={(e) => updateNodeProperty(node.id, 'dateTime', e.target.value)}
+                                                                        className="w-full px-2 py-1 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
+                                                                    />
                                                                 </div>
 
                                                                 <div className="xl:col-span-1 xl:flex justify-end xl:justify-center xl:pt-0">
@@ -1190,24 +1182,6 @@
                                                 <span className="text-sm font-semibold text-rose-600">-EUR{totalReductions.toFixed(2)}</span>
                                             </div>
                                         </div>
-
-                                        {/* Global lodging exclusion toggle — desktop only (mobile has sticky bottom bar) */}
-                                        <label className="hidden lg:flex w-full mt-3 items-center justify-between px-3 py-2.5 rounded-lg border border-neutral-200 cursor-pointer select-none hover:bg-neutral-50 transition-colors">
-                                            <span className="flex items-center gap-2 text-xs font-medium text-neutral-600">
-                                                <Icon name="bed" className="w-3.5 h-3.5" />
-                                                {excludeAllLodging ? "All lodging excluded" : "Exclude all lodging (company paid)"}
-                                            </span>
-                                            <span className="relative inline-block w-10 align-middle select-none">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={excludeAllLodging}
-                                                    onChange={() => setExcludeAllLodging(v => !v)}
-                                                    className="sr-only peer"
-                                                />
-                                                <span className={`block h-6 rounded-full transition-colors ${excludeAllLodging ? 'bg-teal-600' : 'bg-neutral-300'}`}></span>
-                                                <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4"></span>
-                                            </span>
-                                        </label>
 
                                         <button
                                             onClick={triggerPrint}
