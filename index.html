@@ -1061,6 +1061,7 @@
                                                                         const t = node.dateTime ? node.dateTime.split('T')[1] || '09:00' : '09:00';
                                                                         updateNodeProperty(node.id, 'dateTime', e.target.value ? `${e.target.value}T${t}` : '');
                                                                     }}
+                                                                    style={{zoom:0.92}}
                                                                     className="w-full px-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
                                                                 />
                                                             </div>
@@ -1075,6 +1076,7 @@
                                                                         const d = node.dateTime ? node.dateTime.split('T')[0] : '';
                                                                         updateNodeProperty(node.id, 'dateTime', d ? `${d}T${e.target.value}` : '');
                                                                     }}
+                                                                    style={{zoom:0.92}}
                                                                     className="w-full px-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
                                                                 />
                                                             </div>
