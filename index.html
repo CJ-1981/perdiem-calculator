@@ -1023,9 +1023,6 @@
                                                                 </div>
 
                                                                 <div className="flex-1 min-w-0">
-                                                                    <label htmlFor={`loc-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
-                                                                        Location Destination
-                                                                    </label>
                                                                     <div className="relative">
                                                                         <div className="absolute left-2.5 top-2.5 text-neutral-400">
                                                                             <Icon name="mapPin" className="w-4 h-4" />
@@ -1057,34 +1054,33 @@
                                                                 )}
                                                             </div>
 
-                                                            {/* Row 2: Date + Time — stacked for iOS Safari compatibility */}
-                                                            <div className="mt-2.5 grid grid-cols-2 gap-2">
-                                                                <div className="min-w-0">
-                                                                    <label htmlFor={`d-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">Date</label>
-                                                                    <input
-                                                                        id={`d-${node.id}`}
-                                                                        type="date"
-                                                                        value={node.dateTime ? node.dateTime.split('T')[0] : ''}
-                                                                        onChange={(e) => {
-                                                                            const t = node.dateTime ? node.dateTime.split('T')[1] || '09:00' : '09:00';
-                                                                            updateNodeProperty(node.id, 'dateTime', `${e.target.value}T${t}`);
-                                                                        }}
-                                                                        className="w-full px-2 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
-                                                                    />
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <label htmlFor={`t-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">Time</label>
-                                                                    <input
-                                                                        id={`t-${node.id}`}
-                                                                        type="time"
-                                                                        value={node.dateTime ? node.dateTime.split('T')[1] || '' : ''}
-                                                                        onChange={(e) => {
-                                                                            const d = node.dateTime ? node.dateTime.split('T')[0] : '';
-                                                                            updateNodeProperty(node.id, 'dateTime', `${d}T${e.target.value}`);
-                                                                        }}
-                                                                        className="w-full px-2 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
-                                                                    />
-                                                                </div>
+                                                            {/* Row 2: Date — full width for iOS Safari */}
+                                                            <div className="mt-2.5">
+                                                                <label htmlFor={`d-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">Date</label>
+                                                                <input
+                                                                    id={`d-${node.id}`}
+                                                                    type="date"
+                                                                    value={node.dateTime ? node.dateTime.split('T')[0] : ''}
+                                                                    onChange={(e) => {
+                                                                        const t = node.dateTime ? node.dateTime.split('T')[1] || '09:00' : '09:00';
+                                                                        updateNodeProperty(node.id, 'dateTime', `${e.target.value}T${t}`);
+                                                                    }}
+                                                                    className="w-full px-2 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
+                                                                />
+                                                            </div>
+                                                            {/* Row 3: Time — full width for iOS Safari */}
+                                                            <div className="mt-2">
+                                                                <label htmlFor={`t-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">Time</label>
+                                                                <input
+                                                                    id={`t-${node.id}`}
+                                                                    type="time"
+                                                                    value={node.dateTime ? node.dateTime.split('T')[1] || '' : ''}
+                                                                    onChange={(e) => {
+                                                                        const d = node.dateTime ? node.dateTime.split('T')[0] : '';
+                                                                        updateNodeProperty(node.id, 'dateTime', `${d}T${e.target.value}`);
+                                                                    }}
+                                                                    className="w-full px-2 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
+                                                                />
                                                             </div>
 
                                                             <div className="mt-2.5 pt-2 border-t border-dashed border-neutral-200 flex flex-wrap items-center justify-between gap-1 text-[11px] sm:text-xs text-neutral-500">
