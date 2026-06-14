@@ -134,6 +134,11 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .safe-area-bottom {
+                padding-bottom: calc(0.625rem + env(safe-area-inset-bottom));
+            }
+        }
         @media print {
             body * {
                 visibility: hidden;
@@ -933,23 +938,23 @@
 
                     {/* Mobile lodging toggle — sticky bottom bar, hidden on desktop where panel is visible */}
                     {activeTab === "timeline" && (
-                        <div className="lg:hidden sticky bottom-0 z-30 bg-white/95 backdrop-blur-sm border-t border-neutral-200 px-3 py-2">
-                            <button
-                                onClick={() => setExcludeAllLodging(v => !v)}
-                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-[11px] font-medium transition-all ${
-                                    excludeAllLodging
-                                        ? "bg-teal-50 border-teal-300 text-teal-800"
-                                        : "bg-neutral-50 border-neutral-200 text-neutral-600"
-                                }`}
-                            >
-                                <span className="flex items-center gap-1.5">
-                                    <Icon name="bed" className="w-3.5 h-3.5" />
-                                    {excludeAllLodging ? "All lodging excluded" : "Exclude all lodging (company paid)"}
+                        <div className="lg:hidden sticky bottom-0 z-30 bg-white border-t border-neutral-200 px-4 py-2.5 safe-area-bottom">
+                            <label className="flex items-center justify-between cursor-pointer select-none">
+                                <span className="flex items-center gap-2 text-xs font-medium text-neutral-700">
+                                    <Icon name="bed" className="w-4 h-4 text-teal-600" />
+                                    {excludeAllLodging ? "Lodging excluded" : "Exclude lodging (company paid)"}
                                 </span>
-                                <span className={`w-8 h-[18px] rounded-full relative transition-colors ${excludeAllLodging ? 'bg-teal-600' : 'bg-neutral-300'}`}>
-                                    <span className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${excludeAllLodging ? 'translate-x-[14px]' : 'translate-x-[2px]'}`} />
+                                <span className="relative inline-block w-10 align-middle select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={excludeAllLodging}
+                                        onChange={() => setExcludeAllLodging(v => !v)}
+                                        className="sr-only peer"
+                                    />
+                                    <span className="block h-6 bg-neutral-300 rounded-full peer-checked:bg-teal-600 transition-colors"></span>
+                                    <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm peer-checked:translate-x-4 transition-transform"></span>
                                 </span>
-                            </button>
+                            </label>
                         </div>
                     )}
 
@@ -1005,9 +1010,9 @@
 
                                                         {/* Panel Inputs */}
                                                         <div className="bg-neutral-50 hover:bg-neutral-100/70 border border-neutral-200 rounded-xl p-3 sm:p-4 transition-all duration-200 overflow-hidden">
-                                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                                                            <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 items-center">
 
-                                                                <div className="md:col-span-2">
+                                                                <div className="xl:col-span-2">
                                                                     <span className={`inline-block text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
                                                                         isStart
                                                                             ? "bg-neutral-200 text-neutral-800"
@@ -1019,7 +1024,7 @@
                                                                     </span>
                                                                 </div>
 
-                                                                <div className="md:col-span-5 relative min-w-0">
+                                                                <div className="xl:col-span-5 relative min-w-0">
                                                                     <label htmlFor={`loc-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
                                                                         Location Destination
                                                                     </label>
@@ -1042,7 +1047,7 @@
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="md:col-span-4 min-w-0 overflow-hidden">
+                                                                <div className="xl:col-span-4">
                                                                     <label htmlFor={`dt-${node.id}`} className="block text-[11px] font-medium text-neutral-600 uppercase mb-1">
                                                                         Date &amp; Time
                                                                     </label>
@@ -1055,13 +1060,12 @@
                                                                             type="datetime-local"
                                                                             value={node.dateTime}
                                                                             onChange={(e) => updateNodeProperty(node.id, 'dateTime', e.target.value)}
-                                                                            style={{ minWidth: 0 }}
                                                                             className="w-full pl-7 sm:pl-9 pr-2 py-1 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
                                                                         />
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="md:col-span-1 flex justify-end md:justify-center pt-2 md:pt-0">
+                                                                <div className="xl:col-span-1 xl:flex justify-end xl:justify-center xl:pt-0">
                                                                     {!isStart && !isEnd && (
                                                                         <button
                                                                             onClick={() => removeNode(node.id)}
@@ -1188,20 +1192,22 @@
                                         </div>
 
                                         {/* Global lodging exclusion toggle — desktop only (mobile has sticky bottom bar) */}
-                                        <button
-                                            onClick={() => setExcludeAllLodging(v => !v)}
-                                            className={`hidden lg:flex w-full mt-3 items-center justify-between px-3 py-2 rounded-lg border text-[11px] font-medium transition-all ${
-                                                excludeAllLodging
-                                                    ? "bg-teal-50 border-teal-300 text-teal-800"
-                                                    : "bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                                            }`}
-                                            title="Exclude all lodging if the company paid for all hotels directly"
-                                        >
-                                            <span>Exclude all lodging (company paid)</span>
-                                            <span className={`w-8 h-4.5 rounded-full relative transition-colors ${excludeAllLodging ? 'bg-teal-600' : 'bg-neutral-300'}`}>
-                                                <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-transform ${excludeAllLodging ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                        <label className="hidden lg:flex w-full mt-3 items-center justify-between px-3 py-2.5 rounded-lg border border-neutral-200 cursor-pointer select-none hover:bg-neutral-50 transition-colors">
+                                            <span className="flex items-center gap-2 text-xs font-medium text-neutral-600">
+                                                <Icon name="bed" className="w-3.5 h-3.5" />
+                                                {excludeAllLodging ? "All lodging excluded" : "Exclude all lodging (company paid)"}
                                             </span>
-                                        </button>
+                                            <span className="relative inline-block w-10 align-middle select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={excludeAllLodging}
+                                                    onChange={() => setExcludeAllLodging(v => !v)}
+                                                    className="sr-only peer"
+                                                />
+                                                <span className={`block h-6 rounded-full transition-colors ${excludeAllLodging ? 'bg-teal-600' : 'bg-neutral-300'}`}></span>
+                                                <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4"></span>
+                                            </span>
+                                        </label>
 
                                         <button
                                             onClick={triggerPrint}
