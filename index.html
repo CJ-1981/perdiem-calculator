@@ -135,9 +135,11 @@
             font-family: 'Inter', sans-serif;
         }
         /* Fix iOS Safari date/time inputs ignoring CSS width constraints.
-           The shadow DOM pseudo-element defaults to display:inline which
-           prevents the input from shrinking. Setting display:block + padding:0
-           makes the native control respect w-full. */
+           The native shadow DOM imposes an intrinsic min-width that overrides
+           explicit width:100%. contain:inline-size creates a size-containment
+           boundary so the browser ignores the content-based minimum, and the
+           input respects w-full. overflow-hidden on wrapper divs clips any
+           residual overflow without hiding native picker icons. */
         input::-webkit-datetime-edit {
             display: block;
             padding: 0;
@@ -145,9 +147,11 @@
         }
         input[type="date"],
         input[type="time"] {
+            width: 100%;
             min-width: 0;
             max-width: 100%;
             box-sizing: border-box;
+            contain: inline-size;
         }
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
             .safe-area-bottom {
