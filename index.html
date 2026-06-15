@@ -134,6 +134,14 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+        /* Fix iOS Safari date/time inputs ignoring CSS width constraints.
+           The shadow DOM pseudo-element defaults to display:inline which
+           prevents the input from shrinking. Setting display:block + padding:0
+           makes the native control respect w-full. */
+        input::-webkit-datetime-edit {
+            display: block;
+            padding: 0;
+        }
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
             .safe-area-bottom {
                 padding-bottom: calc(0.625rem + env(safe-area-inset-bottom));
@@ -1061,7 +1069,6 @@
                                                                         const t = node.dateTime ? node.dateTime.split('T')[1] || '09:00' : '09:00';
                                                                         updateNodeProperty(node.id, 'dateTime', e.target.value ? `${e.target.value}T${t}` : '');
                                                                     }}
-                                                                    style={{zoom:0.92}}
                                                                     className="w-full px-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
                                                                 />
                                                             </div>
@@ -1076,7 +1083,6 @@
                                                                         const d = node.dateTime ? node.dateTime.split('T')[0] : '';
                                                                         updateNodeProperty(node.id, 'dateTime', d ? `${d}T${e.target.value}` : '');
                                                                     }}
-                                                                    style={{zoom:0.92}}
                                                                     className="w-full px-3 py-1.5 text-sm bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-700"
                                                                 />
                                                             </div>
